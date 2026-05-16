@@ -39,7 +39,7 @@ impl Playlist {
 		}
 
 		let index = match self.index {
-			Some(i) => (i + 1).min(self.len() - 1),
+			Some(i) => (i).min(self.len() - 1),
 			None => 0,
 		};
 
@@ -117,22 +117,27 @@ impl Playlist {
 	}
 
 	pub fn skip_next(&mut self) {
-		// This will make `finished` true, thus skipping.
+		self.index = match self.index {
+			None => Some(0),
+			Some(x) if x == (self.len() - 1) => {
+				self.pause = true;
+				None
+			}
+			Some(x) => Some(x + 1),
+		};
 		self.player.take();
 	}
 
 	pub fn skip_prev(&mut self) {
-		// Because ending the player will skip to next, I decrement the index by 2 instead of 1.
-		// This is ugly and we have to live with it.
 		self.index = match self.index {
-			Some(i) => i.checked_sub(2),
+			Some(i) => i.checked_sub(1),
 			None => None,
 		};
 		self.player.take();
 	}
 
 	pub fn skip_to(&mut self, index: usize) {
-		self.index = index.checked_sub(1);
+		self.index = Some(index);
 		self.player.take();
 	}
 
@@ -254,6 +259,13 @@ pub async fn playback_command(
 
 pub async fn playback_idle_tick(pl: &mut Playlist, tx: &UnboundedSender<PlaybackEvent>) {
 	if pl.finished() && !pl.pause {
+		if pl.player.is_some() {
+			pl.skip_next();
+		}
+		// A second check due to mutation done on skip_next
+		if pl.pause {
+			return;
+		}
 		let e = pl.play().await;
 		if let Err(e) = e {
 			eprintln!("Error occured during playback: {e}");
