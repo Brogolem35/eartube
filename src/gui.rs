@@ -1,8 +1,8 @@
 use std::time::Duration;
 
 use iced::{
-	Element, Event, Subscription, Task, event,
-	widget::{Column, Row, button, column, row, slider, text, text_input},
+	Element, Event, Length, Subscription, Task, event,
+	widget::{Column, Row, button, column, row, scrollable, slider, text, text_input},
 	window,
 };
 use rustypipe::model::TrackItem;
@@ -105,20 +105,25 @@ fn view(state: &AppState) -> Element<'_, Message> {
 	let playback_progress = state.view_playback_progress();
 	let playback_control_row = state.view_playback_control();
 
-	let playlist_elements = Column::from_iter(
+	let playlist_elements = scrollable(Column::from_iter(
 		state.playlist_view
 			.list
 			.iter()
 			.map(|i| text(&i.name).into()),
-	);
+	))
+	.width(Length::Fill)
+	.height(Length::Fill)
+	.spacing(0);
 
 	column![
 		search_input,
 		play_button,
+		playlist_elements,
 		playback_progress,
 		playback_control_row,
-		playlist_elements
 	]
+	.height(Length::Fill)
+	.width(Length::Fill)
 	.into()
 }
 
