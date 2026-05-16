@@ -16,7 +16,7 @@ use crate::{
 struct AppState {
 	search_input: String,
 	playlist_view: PlaylistView,
-	playback_hold_pos: Option<f32>,
+	playback_hold_pos: Option<Duration>,
 	playlist_tx: UnboundedSender<PlaybackCommand>,
 	playlist_rx: UnboundedReceiver<PlaybackEvent>,
 }
@@ -52,6 +52,21 @@ impl AppState {
 			skipn_button
 		]
 	}
+
+	fn view_playback_progress(&self) -> Row<'_, Message> {
+		let pl = &self.playlist_view.player;
+		let len = pl.length;
+		let pos = self.playback_hold_pos.unwrap_or(pl.pos);
+
+		let playback_slider = slider(0.0..=len.as_secs_f32(), pos.as_secs_f32(), |p| {
+			Message::PlaybackSliderHold(Duration::from_secs_f32(p))
+		})
+		.on_release(Message::PlaybackSliderRelease);
+		let playback_pos = text(duration_fmt(pos));
+		let playback_len = text(duration_fmt(len));
+
+		row![playback_pos, playback_slider, playback_len]
+	}
 }
 
 #[derive(Debug, Clone)]
@@ -64,7 +79,7 @@ enum Message {
 	SeekBackward,
 	SkipNext,
 	SkipPrev,
-	PlaybackSliderHold(f32),
+	PlaybackSliderHold(Duration),
 	PlaybackSliderRelease,
 	SearchEdit(String),
 	FetchPlaylist(Result<Vec<TrackItem>, String>),
@@ -85,16 +100,8 @@ fn view(state: &AppState) -> Element<'_, Message> {
 		.on_submit(Message::Play);
 	let play_button = button("Play").on_press(Message::Play);
 
-	let playback_slider = slider(
-		0.0..=state.playlist_view.player.length.as_secs_f32(),
-		state.playback_hold_pos
-			.clone()
-			.unwrap_or(state.playlist_view.player.pos.as_secs_f32()),
-		Message::PlaybackSliderHold,
-	)
-	.on_release(Message::PlaybackSliderRelease);
+	let playback_progress = state.view_playback_progress();
 	let playback_control_row = state.view_playback_control();
-	let duration_text = text(state.playlist_view.player.playback_time());
 
 	let playlist_elements = Column::from_iter(
 		state.playlist_view
@@ -106,8 +113,7 @@ fn view(state: &AppState) -> Element<'_, Message> {
 	column![
 		search_input,
 		play_button,
-		playback_slider,
-		duration_text,
+		playback_progress,
 		playback_control_row,
 		playlist_elements
 	]
@@ -189,7 +195,6 @@ fn update(state: &mut AppState, message: Message) -> Task<Message> {
 			let Some(pos) = state.playback_hold_pos.take() else {
 				return Task::none();
 			};
-			let pos = Duration::from_secs_f32(pos);
 			state.playlist_tx.send(PlaybackCommand::Seek(pos)).unwrap();
 
 			Task::none()
@@ -216,4 +221,10 @@ fn pause_button_icon(paused: bool) -> &'static str {
 		true => "▶",
 		false => "⏸",
 	}
+}
+
+fn duration_fmt(d: Duration) -> String {
+	let d_min = d.as_secs() / 60;
+	let d_sec = d.as_secs() % 60;
+	format!("{}:{:02}", d_min, d_sec)
 }
