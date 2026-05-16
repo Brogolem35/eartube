@@ -4,7 +4,9 @@ use iced::{
 	Element, Event, Length, Subscription, Task,
 	alignment::Horizontal,
 	event,
-	widget::{Column, Row, button, column, row, scrollable, slider, text, text_input},
+	widget::{
+		Column, Row, button, column, mouse_area, row, scrollable, slider, text, text_input,
+	},
 	window,
 };
 use rustypipe::model::TrackItem;
@@ -87,6 +89,7 @@ enum Message {
 	SeekBackward,
 	SkipNext,
 	SkipPrev,
+	SkipTo(usize),
 	PlaybackSliderHold(Duration),
 	PlaybackSliderRelease,
 	SearchEdit(String),
@@ -114,7 +117,11 @@ fn view(state: &AppState) -> Element<'_, Message> {
 		state.playlist_view
 			.list
 			.iter()
-			.map(|i| text(&i.name).into()),
+			.enumerate()
+			.map(|(index, item)| {
+				let msg = Message::SkipTo(index);
+				mouse_area(text(&item.name)).on_press(msg).into()
+			}),
 	))
 	.width(Length::Fill)
 	.height(Length::Fill)
@@ -196,6 +203,10 @@ fn update(state: &mut AppState, message: Message) -> Task<Message> {
 		}
 		Message::SkipPrev => {
 			state.playlist_tx.send(PlaybackCommand::SkipPrev).unwrap();
+			Task::none()
+		}
+		Message::SkipTo(i) => {
+			state.playlist_tx.send(PlaybackCommand::SkipTo(i)).unwrap();
 			Task::none()
 		}
 		Message::PlaybackSliderHold(pos) => {

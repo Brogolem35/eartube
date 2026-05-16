@@ -131,6 +131,11 @@ impl Playlist {
 		self.player.take();
 	}
 
+	pub fn skip_to(&mut self, index: usize) {
+		self.index = index.checked_sub(1);
+		self.player.take();
+	}
+
 	pub fn playlist_view(&self) -> PlaylistView {
 		PlaylistView {
 			list: self.list.clone(),
@@ -169,6 +174,7 @@ pub enum PlaybackCommand {
 	TogglePause,
 	SkipNext,
 	SkipPrev,
+	SkipTo(usize),
 	SeekForward,
 	SeekBackward,
 	Seek(Duration),
@@ -220,6 +226,11 @@ pub async fn playback_command(
 		}
 		PlaybackCommand::SkipPrev => {
 			pl.skip_prev();
+			tx.send(PlaybackEvent::PlaylistUpdated(pl.playlist_view()))
+				.unwrap();
+		}
+		PlaybackCommand::SkipTo(i) => {
+			pl.skip_to(i);
 			tx.send(PlaybackEvent::PlaylistUpdated(pl.playlist_view()))
 				.unwrap();
 		}
