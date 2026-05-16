@@ -91,6 +91,13 @@ impl Playlist {
 		}
 	}
 
+	pub fn seek(&mut self, value: Duration) -> anyhow::Result<()> {
+		match &mut self.player {
+			Some(p) => p.seek(value),
+			None => Ok(()),
+		}
+	}
+
 	pub fn toggle_pause(&mut self) -> anyhow::Result<()> {
 		self.pause = !self.pause;
 		match self.pause {
@@ -164,6 +171,7 @@ pub enum PlaybackCommand {
 	SkipPrev,
 	SeekForward,
 	SeekBackward,
+	Seek(Duration),
 }
 
 pub enum PlaybackEvent {
@@ -222,6 +230,11 @@ pub async fn playback_command(
 		}
 		PlaybackCommand::SeekBackward => {
 			pl.seek_backward().unwrap();
+			tx.send(PlaybackEvent::PlayerUpdated(pl.player_view()))
+				.unwrap();
+		}
+		PlaybackCommand::Seek(pos) => {
+			pl.seek(pos).unwrap();
 			tx.send(PlaybackEvent::PlayerUpdated(pl.player_view()))
 				.unwrap();
 		}

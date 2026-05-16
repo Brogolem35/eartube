@@ -80,6 +80,11 @@ impl Player {
 		Ok(())
 	}
 
+	pub fn seek(&self, value: Duration) -> Result<()> {
+		self.inner.try_seek(value)?;
+		Ok(())
+	}
+
 	/// Pauses playback.
 	pub fn pause(&self) {
 		self.inner.pause();

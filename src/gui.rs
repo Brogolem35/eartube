@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use iced::{
 	Element, Event, Subscription, Task, event,
-	widget::{Column, Row, button, column, row, text, text_input},
+	widget::{Column, Row, button, column, row, slider, text, text_input},
 	window,
 };
 use rustypipe::model::TrackItem;
@@ -16,6 +16,7 @@ use crate::{
 struct AppState {
 	search_input: String,
 	playlist_view: PlaylistView,
+	playback_hold_pos: Option<f32>,
 	playlist_tx: UnboundedSender<PlaybackCommand>,
 	playlist_rx: UnboundedReceiver<PlaybackEvent>,
 }
@@ -30,6 +31,7 @@ impl AppState {
 		Self {
 			search_input: String::from("Bad Apple"),
 			playlist_view: PlaylistView::default(),
+			playback_hold_pos: None,
 			playlist_tx: player_tx,
 			playlist_rx: event_rx,
 		}
@@ -62,6 +64,8 @@ enum Message {
 	SeekBackward,
 	SkipNext,
 	SkipPrev,
+	PlaybackSliderHold(f32),
+	PlaybackSliderRelease,
 	SearchEdit(String),
 	FetchPlaylist(Result<Vec<TrackItem>, String>),
 }
@@ -81,6 +85,14 @@ fn view(state: &AppState) -> Element<'_, Message> {
 		.on_submit(Message::Play);
 	let play_button = button("Play").on_press(Message::Play);
 
+	let playback_slider = slider(
+		0.0..=state.playlist_view.player.length.as_secs_f32(),
+		state.playback_hold_pos
+			.clone()
+			.unwrap_or(state.playlist_view.player.pos.as_secs_f32()),
+		Message::PlaybackSliderHold,
+	)
+	.on_release(Message::PlaybackSliderRelease);
 	let playback_control_row = state.view_playback_control();
 	let duration_text = text(state.playlist_view.player.playback_time());
 
@@ -94,6 +106,7 @@ fn view(state: &AppState) -> Element<'_, Message> {
 	column![
 		search_input,
 		play_button,
+		playback_slider,
 		duration_text,
 		playback_control_row,
 		playlist_elements
@@ -166,6 +179,19 @@ fn update(state: &mut AppState, message: Message) -> Task<Message> {
 		}
 		Message::SkipPrev => {
 			state.playlist_tx.send(PlaybackCommand::SkipPrev).unwrap();
+			Task::none()
+		}
+		Message::PlaybackSliderHold(pos) => {
+			state.playback_hold_pos = Some(pos);
+			Task::none()
+		}
+		Message::PlaybackSliderRelease => {
+			let Some(pos) = state.playback_hold_pos.take() else {
+				return Task::none();
+			};
+			let pos = Duration::from_secs_f32(pos);
+			state.playlist_tx.send(PlaybackCommand::Seek(pos)).unwrap();
+
 			Task::none()
 		}
 		Message::Exit => iced::exit(),
