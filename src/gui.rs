@@ -1,7 +1,9 @@
 use std::time::Duration;
 
 use iced::{
-	Element, Event, Length, Subscription, Task, event,
+	Element, Event, Length, Subscription, Task,
+	alignment::Horizontal,
+	event,
 	widget::{Column, Row, button, column, row, scrollable, slider, text, text_input},
 	window,
 };
@@ -37,20 +39,24 @@ impl AppState {
 		}
 	}
 
-	fn view_playback_control(&self) -> Row<'_, Message> {
+	fn view_playback_control(&self) -> Column<'_, Message> {
 		let pause_button_icon = pause_button_icon(self.playlist_view.player.pause);
 		let skipp_button = button("⏮").on_press(Message::SkipPrev);
 		let seekb_button = button("⏪︎").on_press(Message::SeekBackward);
 		let pause_button = button(pause_button_icon).on_press(Message::TogglePause);
 		let seekf_button = button("⏩︎").on_press(Message::SeekForward);
 		let skipn_button = button("⏭").on_press(Message::SkipNext);
-		row![
+
+		let playback_progress = self.view_playback_progress();
+		let control_buttons = row![
 			skipp_button,
 			seekb_button,
 			pause_button,
 			seekf_button,
 			skipn_button
-		]
+		];
+
+		column![playback_progress, control_buttons,].align_x(Horizontal::Center)
 	}
 
 	fn view_playback_progress(&self) -> Row<'_, Message> {
@@ -102,8 +108,7 @@ fn view(state: &AppState) -> Element<'_, Message> {
 		.on_submit(Message::Play);
 	let play_button = button("Play").on_press(Message::Play);
 
-	let playback_progress = state.view_playback_progress();
-	let playback_control_row = state.view_playback_control();
+	let playback_control = state.view_playback_control();
 
 	let playlist_elements = scrollable(Column::from_iter(
 		state.playlist_view
@@ -119,8 +124,7 @@ fn view(state: &AppState) -> Element<'_, Message> {
 		search_input,
 		play_button,
 		playlist_elements,
-		playback_progress,
-		playback_control_row,
+		playback_control,
 	]
 	.height(Length::Fill)
 	.width(Length::Fill)
