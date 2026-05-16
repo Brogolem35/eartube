@@ -66,6 +66,8 @@ impl AppState {
 		let playback_len = text(duration_fmt(len));
 
 		row![playback_pos, playback_slider, playback_len]
+			.spacing(10)
+			.padding(5)
 	}
 }
 
