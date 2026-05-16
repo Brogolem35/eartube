@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use iced::{
-	Element, Event, Length, Subscription, Task,
+	Color, Element, Event, Length, Subscription, Task,
 	alignment::Horizontal,
 	event,
 	widget::{
@@ -120,7 +120,14 @@ fn view(state: &AppState) -> Element<'_, Message> {
 			.enumerate()
 			.map(|(index, item)| {
 				let msg = Message::SkipTo(index);
-				mouse_area(text(&item.name)).on_press(msg).into()
+				let current = state
+					.playlist_view
+					.index
+					.map(|i| index == i)
+					.unwrap_or(false);
+				let color = current.then_some(Color::from_rgb8(255, 0, 0));
+				let text = text(&item.name).color_maybe(color);
+				mouse_area(text).on_press(msg).into()
 			}),
 	))
 	.width(Length::Fill)
