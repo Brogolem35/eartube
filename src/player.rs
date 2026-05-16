@@ -68,16 +68,14 @@ impl Player {
 		let amount = Duration::from_secs_f32(amount);
 		let res = (self.get_pos() + amount).min(self.duration);
 
-		self.inner.try_seek(res)?;
-		Ok(())
+		self.seek(res)
 	}
 
 	pub fn seek_backward(&self, amount: f32) -> Result<()> {
 		let amount = Duration::from_secs_f32(amount);
 		let res = self.get_pos().saturating_sub(amount);
 
-		self.inner.try_seek(res)?;
-		Ok(())
+		self.seek(res)
 	}
 
 	pub fn seek(&self, value: Duration) -> Result<()> {
