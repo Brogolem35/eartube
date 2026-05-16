@@ -276,6 +276,7 @@ pub struct PlayerView {
 }
 
 impl PlayerView {
+	#[allow(unused)]
 	pub fn playback_time(&self) -> String {
 		let played_min = self.pos.as_secs() / 60;
 		let played_sec = self.pos.as_secs() % 60;
