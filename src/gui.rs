@@ -1,9 +1,10 @@
 use std::time::Duration;
 
 use iced::{
-	Color, Element, Event, Length, Subscription, Task,
+	Color, Element, Length, Subscription, Task,
 	alignment::Horizontal,
 	event,
+	keyboard::{self, Key, key::Named},
 	widget::{
 		Column, Row, button, column, mouse_area, row, scrollable, slider, text, text_input,
 	},
@@ -234,14 +235,23 @@ fn update(state: &mut AppState, message: Message) -> Task<Message> {
 
 fn subscription(_state: &AppState) -> Subscription<Message> {
 	Subscription::batch([
+		iced::time::every(Duration::from_millis(50)).map(|_| Message::Tick),
 		event::listen().filter_map(|e| match e {
-			Event::Window(window::Event::CloseRequested) => {
+			event::Event::Window(window::Event::CloseRequested) => {
 				println!("Received close request. Emitting Message::Exit.");
 				Some(Message::Exit)
 			}
 			_ => None,
 		}),
-		iced::time::every(Duration::from_millis(50)).map(|_| Message::Tick),
+		keyboard::listen().filter_map(|k| match k {
+			keyboard::Event::KeyPressed { key, .. } => match key {
+				Key::Named(Named::ArrowRight) => Some(Message::SeekForward),
+				Key::Named(Named::ArrowLeft) => Some(Message::SeekBackward),
+				Key::Named(Named::Space) => Some(Message::TogglePause),
+				_ => None,
+			},
+			_ => None,
+		}),
 	])
 }
 
