@@ -14,6 +14,7 @@ pub struct Playback {
 	list: Vec<TrackItem>,
 	index: Option<usize>,
 	pause: bool,
+	volume: f32,
 }
 
 impl Playback {
@@ -23,6 +24,7 @@ impl Playback {
 			list: Vec::new(),
 			index: None,
 			pause: true,
+			volume: 1.0,
 		}
 	}
 
@@ -50,7 +52,7 @@ impl Playback {
 		let yt_link = youtube_link(&track_item.id);
 		let stream_url = get_stream_url(&yt_link).await?;
 
-		self.player = Some(Player::new(&stream_url).await?);
+		self.player = Some(Player::new(&stream_url, self.volume).await?);
 		self.index = Some(index);
 		update_track_view(track_item);
 
@@ -147,6 +149,7 @@ impl Playback {
 		PlaylistView {
 			list: self.list.clone(),
 			index: self.index,
+			volume: self.volume,
 			player: self.player_view(),
 		}
 	}
@@ -288,6 +291,7 @@ fn youtube_link(id: &str) -> String {
 pub struct PlaylistView {
 	pub list: Vec<TrackItem>,
 	pub index: Option<usize>,
+	pub volume: f32,
 	pub player: PlayerView,
 }
 

@@ -13,7 +13,7 @@ pub struct Player {
 }
 
 impl Player {
-	pub async fn new(url: &str) -> Result<Self> {
+	pub async fn new(url: &str, volume: f32) -> Result<Self> {
 		static PREFECTH_AMOUNT: u64 = 4 * 1024;
 
 		let settings = Settings::default().prefetch_bytes(PREFECTH_AMOUNT);
@@ -40,6 +40,7 @@ impl Player {
 				.context("Decoder: Unknown length of stream.")?;
 			let player = rodio::Player::connect_new(SINK_HANDLE.mixer());
 			player.append(source);
+			player.set_volume(volume);
 
 			Ok(Self {
 				inner: player,
