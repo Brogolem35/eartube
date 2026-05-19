@@ -1,6 +1,7 @@
+mod data;
 mod gui;
+mod playback;
 mod player;
-mod playlist;
 
 use anyhow::Context;
 use rustypipe::{

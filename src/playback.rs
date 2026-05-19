@@ -6,17 +6,17 @@ use tokio::{
 	sync::mpsc::{UnboundedReceiver, UnboundedSender},
 };
 
-use crate::{get_stream_url, player::Player};
+use crate::{data::update_track_view, get_stream_url, player::Player};
 
 #[derive(Default)]
-pub struct Playlist {
+pub struct Playback {
 	player: Option<Player>,
 	list: Vec<TrackItem>,
 	index: Option<usize>,
 	pause: bool,
 }
 
-impl Playlist {
+impl Playback {
 	pub fn new() -> Self {
 		Self {
 			player: None,
@@ -45,12 +45,14 @@ impl Playlist {
 
 		let track_item = self
 			.get_track(index)
-			.expect("Playlist index is greater than list size.");
+			.expect("Playlist index is greater than list size.")
+			.clone();
 		let yt_link = youtube_link(&track_item.id);
 		let stream_url = get_stream_url(&yt_link).await?;
 
 		self.player = Some(Player::new(&stream_url).await?);
 		self.index = Some(index);
+		update_track_view(track_item);
 
 		Ok(())
 	}
@@ -163,7 +165,7 @@ impl Playlist {
 	}
 }
 
-impl Debug for Playlist {
+impl Debug for Playback {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		f.debug_struct("Playlist")
 			.field("player", &self.player.is_some())
@@ -194,7 +196,7 @@ pub async fn playback_loop(
 	mut rx: UnboundedReceiver<PlaybackCommand>,
 	tx: UnboundedSender<PlaybackEvent>,
 ) {
-	let mut pl = Playlist::new();
+	let mut pl = Playback::new();
 
 	loop {
 		select! {
@@ -209,7 +211,7 @@ pub async fn playback_loop(
 }
 
 pub async fn playback_command(
-	pl: &mut Playlist,
+	pl: &mut Playback,
 	cmd: PlaybackCommand,
 	tx: &UnboundedSender<PlaybackEvent>,
 ) {
@@ -257,7 +259,7 @@ pub async fn playback_command(
 	}
 }
 
-pub async fn playback_idle_tick(pl: &mut Playlist, tx: &UnboundedSender<PlaybackEvent>) {
+pub async fn playback_idle_tick(pl: &mut Playback, tx: &UnboundedSender<PlaybackEvent>) {
 	if pl.finished() && !pl.pause {
 		if pl.player.is_some() {
 			pl.skip_next();

@@ -14,7 +14,7 @@ use rustypipe::model::TrackItem;
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 
 use crate::{
-	playlist::{PlaybackCommand, PlaybackEvent, PlaylistView, playback_loop},
+	playback::{PlaybackCommand, PlaybackEvent, PlaylistView, playback_loop},
 	rp_testing,
 };
 
