@@ -12,10 +12,9 @@ use serde::{Deserialize, Serialize};
 pub static TRACK_STATS: LazyLock<DashMap<String, TrackStat>> = LazyLock::new(load_track_stats);
 
 fn get_stats_path() -> PathBuf {
-	let data_dir_name = if cfg!(debug_assertions) {
-		"eartube-debug"
-	} else {
-		"eartube"
+	let data_dir_name = match cfg!(debug_assertions) {
+		true => "eartube-debug",
+		false => "eartube",
 	};
 	dirs::data_local_dir()
 		.expect("Unsupported OS")
