@@ -14,16 +14,16 @@ use rustypipe::model::TrackItem;
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 
 use crate::{
-	playback::{PlaybackCommand, PlaybackEvent, PlaylistView, playback_loop},
+	playback::{PlaybackCommand, PlaybackEvent, PlaybackView, playback_loop},
 	rp_testing,
 };
 
 struct AppState {
 	search_input: String,
-	playlist_view: PlaylistView,
+	playback_view: PlaybackView,
 	playback_hold_pos: Option<Duration>,
-	playlist_tx: UnboundedSender<PlaybackCommand>,
-	playlist_rx: UnboundedReceiver<PlaybackEvent>,
+	playback_tx: UnboundedSender<PlaybackCommand>,
+	playback_rx: UnboundedReceiver<PlaybackEvent>,
 }
 
 impl AppState {
@@ -35,15 +35,15 @@ impl AppState {
 
 		Self {
 			search_input: String::from("Bad Apple"),
-			playlist_view: PlaylistView::default(),
+			playback_view: PlaybackView::default(),
 			playback_hold_pos: None,
-			playlist_tx: player_tx,
-			playlist_rx: event_rx,
+			playback_tx: player_tx,
+			playback_rx: event_rx,
 		}
 	}
 
 	fn view_playback_control(&self) -> Column<'_, Message> {
-		let pause_button_icon = pause_button_icon(self.playlist_view.player.pause);
+		let pause_button_icon = pause_button_icon(self.playback_view.player.pause);
 		let skipp_button = button("⏮").on_press(Message::SkipPrev);
 		let seekb_button = button("⏪︎").on_press(Message::SeekBackward);
 		let pause_button = button(pause_button_icon).on_press(Message::TogglePause);
@@ -63,7 +63,7 @@ impl AppState {
 	}
 
 	fn view_playback_progress(&self) -> Row<'_, Message> {
-		let pl = &self.playlist_view.player;
+		let pl = &self.playback_view.player;
 		let len = pl.length;
 		let pos = self.playback_hold_pos.unwrap_or(pl.pos);
 
@@ -115,14 +115,14 @@ fn view(state: &AppState) -> Element<'_, Message> {
 	let playback_control = state.view_playback_control();
 
 	let playlist_elements = scrollable(Column::from_iter(
-		state.playlist_view
+		state.playback_view
 			.list
 			.iter()
 			.enumerate()
 			.map(|(index, item)| {
 				let msg = Message::SkipTo(index);
 				let current = state
-					.playlist_view
+					.playback_view
 					.index
 					.map(|i| index == i)
 					.unwrap_or(false);
@@ -164,7 +164,7 @@ fn update(state: &mut AppState, message: Message) -> Task<Message> {
 				}
 			};
 
-			state.playlist_tx
+			state.playback_tx
 				.send(PlaybackCommand::LoadPlaylist(items))
 				.unwrap();
 			Task::none()
@@ -174,13 +174,13 @@ fn update(state: &mut AppState, message: Message) -> Task<Message> {
 			Task::none()
 		}
 		Message::Tick => {
-			while let Ok(event) = state.playlist_rx.try_recv() {
+			while let Ok(event) = state.playback_rx.try_recv() {
 				match event {
 					PlaybackEvent::PlaylistUpdated(view) => {
-						state.playlist_view = view;
+						state.playback_view = view;
 					}
 					PlaybackEvent::PlayerUpdated(view) => {
-						state.playlist_view.player = view;
+						state.playback_view.player = view;
 					}
 				}
 			}
@@ -188,33 +188,33 @@ fn update(state: &mut AppState, message: Message) -> Task<Message> {
 			Task::none()
 		}
 		Message::SeekForward => {
-			state.playlist_tx
+			state.playback_tx
 				.send(PlaybackCommand::SeekForward)
 				.unwrap();
 			Task::none()
 		}
 		Message::SeekBackward => {
-			state.playlist_tx
+			state.playback_tx
 				.send(PlaybackCommand::SeekBackward)
 				.unwrap();
 			Task::none()
 		}
 		Message::TogglePause => {
-			state.playlist_tx
+			state.playback_tx
 				.send(PlaybackCommand::TogglePause)
 				.unwrap();
 			Task::none()
 		}
 		Message::SkipNext => {
-			state.playlist_tx.send(PlaybackCommand::SkipNext).unwrap();
+			state.playback_tx.send(PlaybackCommand::SkipNext).unwrap();
 			Task::none()
 		}
 		Message::SkipPrev => {
-			state.playlist_tx.send(PlaybackCommand::SkipPrev).unwrap();
+			state.playback_tx.send(PlaybackCommand::SkipPrev).unwrap();
 			Task::none()
 		}
 		Message::SkipTo(i) => {
-			state.playlist_tx.send(PlaybackCommand::SkipTo(i)).unwrap();
+			state.playback_tx.send(PlaybackCommand::SkipTo(i)).unwrap();
 			Task::none()
 		}
 		Message::PlaybackSliderHold(pos) => {
@@ -225,7 +225,7 @@ fn update(state: &mut AppState, message: Message) -> Task<Message> {
 			let Some(pos) = state.playback_hold_pos.take() else {
 				return Task::none();
 			};
-			state.playlist_tx.send(PlaybackCommand::Seek(pos)).unwrap();
+			state.playback_tx.send(PlaybackCommand::Seek(pos)).unwrap();
 
 			Task::none()
 		}

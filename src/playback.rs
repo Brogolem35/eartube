@@ -145,8 +145,8 @@ impl Playback {
 		self.player.take();
 	}
 
-	pub fn playlist_view(&self) -> PlaylistView {
-		PlaylistView {
+	pub fn playback_view(&self) -> PlaybackView {
+		PlaybackView {
 			list: self.list.clone(),
 			index: self.index,
 			volume: self.volume,
@@ -191,7 +191,7 @@ pub enum PlaybackCommand {
 }
 
 pub enum PlaybackEvent {
-	PlaylistUpdated(PlaylistView),
+	PlaylistUpdated(PlaybackView),
 	PlayerUpdated(PlayerView),
 }
 
@@ -221,7 +221,7 @@ pub async fn playback_command(
 	match cmd {
 		PlaybackCommand::LoadPlaylist(list) => {
 			pl.set_list(list);
-			tx.send(PlaybackEvent::PlaylistUpdated(pl.playlist_view()))
+			tx.send(PlaybackEvent::PlaylistUpdated(pl.playback_view()))
 				.unwrap();
 		}
 		PlaybackCommand::TogglePause => {
@@ -231,17 +231,17 @@ pub async fn playback_command(
 		}
 		PlaybackCommand::SkipNext => {
 			pl.skip_next();
-			tx.send(PlaybackEvent::PlaylistUpdated(pl.playlist_view()))
+			tx.send(PlaybackEvent::PlaylistUpdated(pl.playback_view()))
 				.unwrap();
 		}
 		PlaybackCommand::SkipPrev => {
 			pl.skip_prev();
-			tx.send(PlaybackEvent::PlaylistUpdated(pl.playlist_view()))
+			tx.send(PlaybackEvent::PlaylistUpdated(pl.playback_view()))
 				.unwrap();
 		}
 		PlaybackCommand::SkipTo(i) => {
 			pl.skip_to(i);
-			tx.send(PlaybackEvent::PlaylistUpdated(pl.playlist_view()))
+			tx.send(PlaybackEvent::PlaylistUpdated(pl.playback_view()))
 				.unwrap();
 		}
 		PlaybackCommand::SeekForward => {
@@ -275,7 +275,7 @@ pub async fn playback_idle_tick(pl: &mut Playback, tx: &UnboundedSender<Playback
 		if let Err(e) = e {
 			eprintln!("Error occured during playback: {e}");
 		}
-		tx.send(PlaybackEvent::PlaylistUpdated(pl.playlist_view()))
+		tx.send(PlaybackEvent::PlaylistUpdated(pl.playback_view()))
 			.unwrap();
 	} else {
 		tx.send(PlaybackEvent::PlayerUpdated(pl.player_view()))
@@ -288,14 +288,14 @@ fn youtube_link(id: &str) -> String {
 }
 
 #[derive(Debug, Default, Clone)]
-pub struct PlaylistView {
+pub struct PlaybackView {
 	pub list: Vec<TrackItem>,
 	pub index: Option<usize>,
 	pub volume: f32,
 	pub player: PlayerView,
 }
 
-impl PlaylistView {}
+impl PlaybackView {}
 
 #[derive(Debug, Default, Clone)]
 pub struct PlayerView {
