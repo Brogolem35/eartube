@@ -32,11 +32,11 @@ fn load_track_stats() -> DashMap<String, TrackStat, FixedState> {
 		// Create parent directories and an empty file
 		if let Some(parent) = path.parent() {
 			if let Err(e) = fs::create_dir_all(parent) {
-				panic!("Failed to create stats directory: {e}");
+				panic!("Failed to create data directory: {e}");
 			}
 		}
 		if let Err(e) = fs::write(&path, "{}") {
-			panic!("Failed to create track stats file: {e}");
+			panic!("Failed to create track_stats.json: {e}");
 		}
 		return DashMap::default();
 	}
@@ -53,22 +53,26 @@ fn load_track_stats() -> DashMap<String, TrackStat, FixedState> {
 
 	let updated_content = serde_json::to_string_pretty(&res).unwrap();
 	if updated_content != content {
-		eprintln!("track_stats.json does not match, updating...");
-		save_track_stats();
+		eprintln!(
+			"track_stats.json does not match its deserialized counterpart, updating..."
+		);
+		save_track_stats_content(updated_content);
 	}
 
 	res
 }
 
 pub fn save_track_stats() {
-	let path = get_stats_path();
 	match serde_json::to_string_pretty(&*TRACK_STATS) {
-		Ok(json) => {
-			if let Err(e) = fs::write(&path, json) {
-				eprintln!("Failed to save track stats: {e}");
-			}
-		}
+		Ok(json) => save_track_stats_content(json),
 		Err(e) => panic!("Failed to serialize track stats: {e}"),
+	}
+}
+
+fn save_track_stats_content(content: String) {
+	let path = get_stats_path();
+	if let Err(e) = fs::write(&path, content) {
+		eprintln!("Failed to save track stats: {e}");
 	}
 }
 
