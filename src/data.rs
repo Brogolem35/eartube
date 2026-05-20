@@ -6,10 +6,12 @@ use std::{
 };
 
 use dashmap::DashMap;
+use foldhash::fast::FixedState;
 use rustypipe::model::TrackItem;
 use serde::{Deserialize, Serialize};
 
-pub static TRACK_STATS: LazyLock<DashMap<String, TrackStat>> = LazyLock::new(load_track_stats);
+pub static TRACK_STATS: LazyLock<DashMap<String, TrackStat, FixedState>> =
+	LazyLock::new(load_track_stats);
 
 fn get_stats_path() -> PathBuf {
 	let data_dir_name = match cfg!(debug_assertions) {
@@ -22,7 +24,7 @@ fn get_stats_path() -> PathBuf {
 		.join("track_stats.json")
 }
 
-fn load_track_stats() -> DashMap<String, TrackStat> {
+fn load_track_stats() -> DashMap<String, TrackStat, FixedState> {
 	let path = get_stats_path();
 	if !path.exists() {
 		eprintln!("track_stats.json does not exist, creating...");
@@ -36,7 +38,7 @@ fn load_track_stats() -> DashMap<String, TrackStat> {
 		if let Err(e) = fs::write(&path, "{}") {
 			panic!("Failed to create track stats file: {e}");
 		}
-		return DashMap::new();
+		return DashMap::default();
 	}
 
 	let content = match fs::read_to_string(&path) {

@@ -1216,6 +1216,7 @@ dependencies = [
  "anyhow",
  "dashmap",
  "dirs",
+ "foldhash 0.2.0",
  "iced",
  "reqwest 0.13.3",
  "rodio",
