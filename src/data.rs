@@ -30,10 +30,10 @@ fn load_track_stats() -> DashMap<String, TrackStat, FixedState> {
 		eprintln!("track_stats.json does not exist, creating...");
 
 		// Create parent directories and an empty file
-		if let Some(parent) = path.parent() {
-			if let Err(e) = fs::create_dir_all(parent) {
-				panic!("Failed to create data directory: {e}");
-			}
+		if let Some(parent) = path.parent()
+			&& let Err(e) = fs::create_dir_all(parent)
+		{
+			panic!("Failed to create data directory: {e}");
 		}
 		if let Err(e) = fs::write(&path, "{}") {
 			panic!("Failed to create track_stats.json: {e}");
