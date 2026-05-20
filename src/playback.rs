@@ -145,11 +145,17 @@ impl Playback {
 		self.player.take();
 	}
 
+	pub fn set_volume(&mut self, vol: f32) {
+		self.volume = vol;
+		if let Some(ref p) = self.player {
+			p.set_volume(self.volume);
+		}
+	}
+
 	pub fn playback_view(&self) -> PlaybackView {
 		PlaybackView {
 			list: self.list.clone(),
 			index: self.index,
-			volume: self.volume,
 			player: self.player_view(),
 		}
 	}
@@ -158,6 +164,7 @@ impl Playback {
 		let pref = self.player.as_ref();
 		PlayerView {
 			pause: self.pause,
+			volume: self.volume,
 			pos: pref.map(|p| p.get_pos()).unwrap_or_default(),
 			length: pref.map(|p| p.duration).unwrap_or_default(),
 		}
@@ -188,6 +195,7 @@ pub enum PlaybackCommand {
 	SeekForward,
 	SeekBackward,
 	Seek(Duration),
+	SetVolume(f32),
 }
 
 pub enum PlaybackEvent {
@@ -259,6 +267,11 @@ pub async fn playback_command(
 			tx.send(PlaybackEvent::PlayerUpdated(pl.player_view()))
 				.unwrap();
 		}
+		PlaybackCommand::SetVolume(v) => {
+			pl.set_volume(v);
+			tx.send(PlaybackEvent::PlayerUpdated(pl.player_view()))
+				.unwrap();
+		}
 	}
 }
 
@@ -291,7 +304,6 @@ fn youtube_link(id: &str) -> String {
 pub struct PlaybackView {
 	pub list: Vec<TrackItem>,
 	pub index: Option<usize>,
-	pub volume: f32,
 	pub player: PlayerView,
 }
 
@@ -300,6 +312,7 @@ impl PlaybackView {}
 #[derive(Debug, Default, Clone)]
 pub struct PlayerView {
 	pub pause: bool,
+	pub volume: f32,
 	pub pos: Duration,
 	pub length: Duration,
 }

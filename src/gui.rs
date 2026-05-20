@@ -2,11 +2,12 @@ use std::time::Duration;
 
 use iced::{
 	Color, Element, Length, Subscription, Task,
-	alignment::Horizontal,
+	alignment::{Horizontal, Vertical},
 	event,
 	keyboard::{self, Key, key::Named},
 	widget::{
-		Column, Row, button, column, mouse_area, row, scrollable, slider, text, text_input,
+		Column, Row, button, column, mouse_area, row, scrollable, slider, space, text,
+		text_input,
 	},
 	window,
 };
@@ -59,7 +60,16 @@ impl AppState {
 			skipn_button
 		];
 
-		column![playback_progress, control_buttons,].align_x(Horizontal::Center)
+		let volume_slider = self.view_volume_slider();
+
+		// Three equal columns: spacer | buttons | slider
+		// This keeps buttons visually centered regardless of slider width.
+		let controls_row =
+			row![space().width(Length::Fill), control_buttons, volume_slider]
+				.align_y(Vertical::Center)
+				.spacing(50);
+
+		column![playback_progress, controls_row,].align_x(Horizontal::Center)
 	}
 
 	fn view_playback_progress(&self) -> Row<'_, Message> {
@@ -78,6 +88,25 @@ impl AppState {
 			.spacing(10)
 			.padding(5)
 	}
+
+	fn view_volume_slider(&self) -> Row<'_, Message> {
+		let slider = slider(
+			0.0..=1.0,
+			self.playback_view.player.volume,
+			Message::VolumeChanged,
+		)
+		.step(0.005)
+		.width(100);
+		let vol_percent = (self.playback_view.player.volume * 100.0) as u32;
+		let text = text(format!("{:>3}%", vol_percent))
+			.align_x(Horizontal::Right)
+			.width(40);
+
+		row![slider, text]
+			.align_y(Vertical::Center)
+			.width(Length::Fill)
+			.spacing(5)
+	}
 }
 
 #[derive(Debug, Clone)]
@@ -93,6 +122,7 @@ enum Message {
 	SkipTo(usize),
 	PlaybackSliderHold(Duration),
 	PlaybackSliderRelease,
+	VolumeChanged(f32),
 	SearchEdit(String),
 	FetchPlaylist(Result<Vec<TrackItem>, String>),
 }
@@ -230,6 +260,12 @@ fn update(state: &mut AppState, message: Message) -> Task<Message> {
 			Task::none()
 		}
 		Message::Exit => iced::exit(),
+		Message::VolumeChanged(v) => {
+			state.playback_tx
+				.send(PlaybackCommand::SetVolume(v))
+				.unwrap();
+			Task::none()
+		}
 	}
 }
 
