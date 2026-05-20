@@ -5,7 +5,7 @@ edition = "2024"
 
 [dependencies]
 anyhow = "1.0.102"
-dashmap = { version = "6.1.0", features = ["serde"] }
+dashmap = { version = "6.2.1", features = ["serde"] }
 dirs = "6.0.0"
 foldhash = "0.2.0"
 iced = { version = "0.14.0", features = ["tokio", "debug", "image"] }
