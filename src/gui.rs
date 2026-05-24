@@ -1,13 +1,14 @@
 use std::time::Duration;
 
 use iced::{
-	Color, Element, Length, Subscription, Task,
+	Background, Border, Color, Element, Length, Subscription, Task, Theme,
 	alignment::{Horizontal, Vertical},
+	border::Radius,
 	event,
 	keyboard::{self, Key, key::Named},
 	widget::{
-		Column, Row, button, column, mouse_area, row, scrollable, slider, space, text,
-		text_input,
+		Column, Row, button, column, container, mouse_area, row, scrollable, slider, space,
+		text, text_input,
 	},
 	window,
 };
@@ -156,9 +157,8 @@ fn view(state: &AppState) -> Element<'_, Message> {
 					.index
 					.map(|i| index == i)
 					.unwrap_or(false);
-				let color = current.then_some(Color::from_rgb8(255, 0, 0));
-				let text = text(&item.name).color_maybe(color);
-				mouse_area(text).on_press(msg).into()
+				let card = track_card(item, current);
+				mouse_area(card).on_press(msg).into()
 			}),
 	))
 	.width(Length::Fill)
@@ -302,4 +302,52 @@ fn duration_fmt(d: Duration) -> String {
 	let d_min = d.as_secs() / 60;
 	let d_sec = d.as_secs() % 60;
 	format!("{}:{:02}", d_min, d_sec)
+}
+
+fn track_card(track: &TrackItem, current: bool) -> Element<'_, Message> {
+	let (bg_color, border_color, name_color, artist_color) = if current {
+		(
+			Color::from_rgb8(45, 45, 60),
+			Color::from_rgb8(120, 120, 255),
+			Color::from_rgb8(255, 255, 255),
+			Color::from_rgb8(210, 210, 255),
+		)
+	} else {
+		(
+			Color::from_rgb8(30, 30, 30),
+			Color::from_rgb8(60, 60, 60),
+			Color::WHITE,
+			Color::from_rgb8(180, 180, 180),
+		)
+	};
+
+	let name = text(&track.name)
+		.size(20)
+		.style(move |_: &Theme| text::Style {
+			color: Some(name_color),
+		});
+
+	let artists = text(track
+		.artists
+		.iter()
+		.map(|a| a.name.as_str())
+		.collect::<Vec<_>>()
+		.join(", "))
+	.size(14)
+	.style(move |_: &Theme| text::Style {
+		color: Some(artist_color),
+	});
+
+	container(column![name, artists].spacing(6).padding(14))
+		.width(Length::Fill)
+		.style(move |_: &Theme| container::Style {
+			background: Some(Background::Color(bg_color)),
+			border: Border {
+				radius: Radius::new(12.0),
+				width: if current { 2.0 } else { 1.0 },
+				color: border_color,
+			},
+			..Default::default()
+		})
+		.into()
 }
