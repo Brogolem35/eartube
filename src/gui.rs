@@ -1,14 +1,14 @@
 use std::time::Duration;
 
 use iced::{
-	Background, Border, Color, Element, Length, Subscription, Task, Theme,
+	Background, Border, Color, ContentFit, Element, Length, Subscription, Task, Theme,
 	alignment::{Horizontal, Vertical},
 	border::Radius,
 	event,
 	keyboard::{self, Key, key::Named},
 	widget::{
-		Column, Row, button, column, container, mouse_area, row, scrollable, slider, space,
-		text, text_input,
+		Column, Row, button, column, container, image, mouse_area, row, scrollable, slider,
+		space, text, text_input,
 	},
 	window,
 };
@@ -16,6 +16,7 @@ use rustypipe::model::TrackItem;
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 
 use crate::{
+	data::get_track_image,
 	playback::{PlaybackCommand, PlaybackEvent, PlaybackView, playback_loop},
 	rp_testing,
 };
@@ -321,6 +322,11 @@ fn track_card(track: &TrackItem, current: bool) -> Element<'_, Message> {
 		)
 	};
 
+	let thumbnail = image(get_track_image(track))
+		.content_fit(ContentFit::Cover)
+		.height(80)
+		.width(80);
+
 	let name = text(&track.name)
 		.size(20)
 		.style(move |_: &Theme| text::Style {
@@ -338,7 +344,9 @@ fn track_card(track: &TrackItem, current: bool) -> Element<'_, Message> {
 		color: Some(artist_color),
 	});
 
-	container(column![name, artists].spacing(6).padding(14))
+	let column = column![name, artists].spacing(6).padding(10);
+
+	container(row![thumbnail, column].spacing(6).padding(10))
 		.width(Length::Fill)
 		.style(move |_: &Theme| container::Style {
 			background: Some(Background::Color(bg_color)),
