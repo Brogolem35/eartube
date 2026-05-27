@@ -137,13 +137,12 @@ pub enum Message {
 	FetchPlaylist(Result<Vec<TrackItem>, String>),
 }
 
-pub fn iced_main() -> anyhow::Result<()> {
+pub fn iced_main() -> iced::Result {
 	iced::application(AppState::new, update, view)
 		.title("Eartube")
 		.exit_on_close_request(false)
 		.subscription(subscription)
-		.run()?;
-	Ok(())
+		.run()
 }
 
 fn view(state: &AppState) -> Element<'_, Message> {

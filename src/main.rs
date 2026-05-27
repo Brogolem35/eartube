@@ -14,9 +14,8 @@ use tokio::process::Command;
 
 use crate::gui::iced_main;
 
-fn main() -> anyhow::Result<()> {
-	iced_main().unwrap();
-	Ok(())
+fn main() -> iced::Result {
+	iced_main()
 }
 
 pub async fn rp_testing(search_text: &str) -> anyhow::Result<Vec<TrackItem>> {
