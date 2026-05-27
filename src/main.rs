@@ -3,6 +3,7 @@ mod gui;
 mod playback;
 mod player;
 mod thumbnail;
+mod icons;
 
 use anyhow::Context;
 use rustypipe::{

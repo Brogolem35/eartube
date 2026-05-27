@@ -8,7 +8,7 @@ use iced::{
 	keyboard::{self, Key, key::Named},
 	widget::{
 		Column, Row, button, column, container, image, mouse_area, row, scrollable, sensor,
-		slider, space, text, text_input,
+		slider, space, svg, text, text_input,
 	},
 	window,
 };
@@ -16,6 +16,7 @@ use rustypipe::model::TrackItem;
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 
 use crate::{
+	icons,
 	playback::{PlaybackCommand, PlaybackEvent, PlaybackView, playback_loop},
 	rp_testing,
 	thumbnail::{ThumbnailCache, ThumbnailSource},
@@ -53,20 +54,24 @@ impl AppState {
 
 	fn view_playback_control(&self) -> Column<'_, Message> {
 		let pause_button_icon = pause_button_icon(self.playback_view.player.pause);
-		let skipp_button = button("⏮").on_press(Message::SkipPrev);
-		let seekb_button = button("⏪︎").on_press(Message::SeekBackward);
-		let pause_button = button(pause_button_icon).on_press(Message::TogglePause);
-		let seekf_button = button("⏩︎").on_press(Message::SeekForward);
-		let skipn_button = button("⏭").on_press(Message::SkipNext);
+		let button_height = Length::Fixed(30.0);
+		let button_widht = Length::Fixed(40.0);
+
+		let skipp_button = button(svg(svg::Handle::from_memory(icons::PREV)))
+			.on_press(Message::SkipPrev)
+			.height(button_height)
+			.width(button_widht);
+		let pause_button = button(svg(pause_button_icon))
+			.on_press(Message::TogglePause)
+			.height(button_height)
+			.width(button_widht);
+		let skipn_button = button(svg(svg::Handle::from_memory(icons::NEXT)))
+			.on_press(Message::SkipNext)
+			.height(button_height)
+			.width(button_widht);
 
 		let playback_progress = self.view_playback_progress();
-		let control_buttons = row![
-			skipp_button,
-			seekb_button,
-			pause_button,
-			seekf_button,
-			skipn_button
-		];
+		let control_buttons = row![skipp_button, pause_button, skipn_button];
 
 		let volume_slider = self.view_volume_slider();
 
@@ -77,7 +82,9 @@ impl AppState {
 				.align_y(Vertical::Center)
 				.spacing(50);
 
-		column![playback_progress, controls_row,].align_x(Horizontal::Center)
+		column![playback_progress, controls_row,]
+			.align_x(Horizontal::Center)
+			.padding(10)
 	}
 
 	fn view_playback_progress(&self) -> Row<'_, Message> {
@@ -305,10 +312,10 @@ fn subscription(_state: &AppState) -> Subscription<Message> {
 	])
 }
 
-fn pause_button_icon(paused: bool) -> &'static str {
+fn pause_button_icon(paused: bool) -> svg::Handle {
 	match paused {
-		true => "▶",
-		false => "⏸",
+		true => svg::Handle::from_memory(icons::PLAY),
+		false => svg::Handle::from_memory(icons::PAUSE),
 	}
 }
 
