@@ -22,17 +22,10 @@ impl ThumbnailCache {
 		self.inner.insert(id, ImageState::Loaded(img));
 	}
 
-	pub fn fetch(&mut self, track: &TrackItem) -> Task<Message> {
+	pub fn fetch(&mut self, src: ThumbnailSource) -> Task<Message> {
 		use std::collections::hash_map::Entry;
 
-		let id = track.id().to_string();
-		let url = track
-			.cover
-			.iter()
-			.max_by_key(|t| t.height)
-			.unwrap()
-			.clone()
-			.url;
+		let ThumbnailSource { id, url } = src;
 		match self.inner.entry(id.clone()) {
 			Entry::Vacant(view) => {
 				view.insert(ImageState::Loading);
@@ -68,4 +61,28 @@ pub enum ImageState {
 	#[default]
 	Loading,
 	Loaded(image::Handle),
+}
+
+#[derive(Clone, Default, Debug)]
+pub struct ThumbnailSource {
+	id: String,
+	url: String,
+}
+
+impl ThumbnailSource {
+	pub fn new(track: &TrackItem) -> Self {
+		let urls = track.cover.iter();
+		let chosen = match urls
+			.clone()
+			.filter(|t| t.height >= 80)
+			.min_by_key(|t| t.height)
+		{
+			Some(u) => u,
+			None => urls.max_by_key(|t| t.height).expect("Empty URL list"),
+		};
+
+		let url = chosen.url.clone();
+		let id = track.id().to_string();
+		Self { id, url }
+	}
 }

@@ -18,7 +18,7 @@ use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 use crate::{
 	playback::{PlaybackCommand, PlaybackEvent, PlaybackView, playback_loop},
 	rp_testing,
-	thumbnail::ThumbnailCache,
+	thumbnail::{ThumbnailCache, ThumbnailSource},
 };
 
 struct AppState {
@@ -132,7 +132,7 @@ pub enum Message {
 	PlaybackSliderRelease,
 	VolumeChanged(f32),
 	SearchEdit(String),
-	ImagePopIn(TrackItem),
+	ImagePopIn(ThumbnailSource),
 	ImageLoaded { id: String, img: image::Handle },
 	FetchPlaylist(Result<Vec<TrackItem>, String>),
 }
@@ -275,7 +275,7 @@ fn update(state: &mut AppState, message: Message) -> Task<Message> {
 				.unwrap();
 			Task::none()
 		}
-		Message::ImagePopIn(track) => state.thumbnail_manager.fetch(&track),
+		Message::ImagePopIn(track) => state.thumbnail_manager.fetch(track),
 		Message::ImageLoaded { id, img } => {
 			state.thumbnail_manager.set(id, img);
 			Task::none()
@@ -340,7 +340,7 @@ fn track_card(track: &TrackItem, current: bool, thumb: image::Handle) -> Element
 		.content_fit(ContentFit::Cover)
 		.height(80)
 		.width(80))
-	.on_show(|_| Message::ImagePopIn(track.clone()))
+	.on_show(|_| Message::ImagePopIn(ThumbnailSource::new(track)))
 	.key_ref(&track.id);
 
 	let name = text(&track.name)
