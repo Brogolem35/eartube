@@ -7,8 +7,8 @@ use iced::{
 	event,
 	keyboard::{self, Key, key::Named},
 	widget::{
-		Column, Row, button, column, container, image, mouse_area, row, scrollable, slider,
-		space, text, text_input,
+		Column, Row, button, column, container, image, mouse_area, row, scrollable, sensor,
+		slider, space, text, text_input,
 	},
 	window,
 };
@@ -16,15 +16,18 @@ use rustypipe::model::TrackItem;
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 
 use crate::{
-	data::get_track_image,
 	playback::{PlaybackCommand, PlaybackEvent, PlaybackView, playback_loop},
 	rp_testing,
+	thumbnail::ThumbnailCache,
 };
 
 struct AppState {
 	search_input: String,
 	playback_view: PlaybackView,
 	playback_hold_pos: Option<Duration>,
+
+	thumbnail_manager: ThumbnailCache,
+
 	playback_tx: UnboundedSender<PlaybackCommand>,
 	playback_rx: UnboundedReceiver<PlaybackEvent>,
 }
@@ -40,6 +43,9 @@ impl AppState {
 			search_input: String::from("Bad Apple"),
 			playback_view: PlaybackView::default(),
 			playback_hold_pos: None,
+
+			thumbnail_manager: ThumbnailCache::default(),
+
 			playback_tx: player_tx,
 			playback_rx: event_rx,
 		}
@@ -112,7 +118,7 @@ impl AppState {
 }
 
 #[derive(Debug, Clone)]
-enum Message {
+pub enum Message {
 	Exit,
 	Play,
 	Tick,
@@ -126,6 +132,8 @@ enum Message {
 	PlaybackSliderRelease,
 	VolumeChanged(f32),
 	SearchEdit(String),
+	ImagePopIn(TrackItem),
+	ImageLoaded { id: String, img: image::Handle },
 	FetchPlaylist(Result<Vec<TrackItem>, String>),
 }
 
@@ -158,7 +166,8 @@ fn view(state: &AppState) -> Element<'_, Message> {
 					.index
 					.map(|i| index == i)
 					.unwrap_or(false);
-				let card = track_card(item, current);
+				let thumb = state.thumbnail_manager.get(&item.id);
+				let card = track_card(item, current, thumb);
 				mouse_area(card).on_press(msg).into()
 			}),
 	))
@@ -260,13 +269,18 @@ fn update(state: &mut AppState, message: Message) -> Task<Message> {
 
 			Task::none()
 		}
-		Message::Exit => iced::exit(),
 		Message::VolumeChanged(v) => {
 			state.playback_tx
 				.send(PlaybackCommand::SetVolume(v))
 				.unwrap();
 			Task::none()
 		}
+		Message::ImagePopIn(track) => state.thumbnail_manager.fetch(&track),
+		Message::ImageLoaded { id, img } => {
+			state.thumbnail_manager.set(id, img);
+			Task::none()
+		}
+		Message::Exit => iced::exit(),
 	}
 }
 
@@ -305,7 +319,7 @@ fn duration_fmt(d: Duration) -> String {
 	format!("{}:{:02}", d_min, d_sec)
 }
 
-fn track_card(track: &TrackItem, current: bool) -> Element<'_, Message> {
+fn track_card(track: &TrackItem, current: bool, thumb: image::Handle) -> Element<'_, Message> {
 	let (bg_color, border_color, name_color, artist_color) = if current {
 		(
 			Color::from_rgb8(45, 45, 60),
@@ -322,10 +336,12 @@ fn track_card(track: &TrackItem, current: bool) -> Element<'_, Message> {
 		)
 	};
 
-	let thumbnail = image(get_track_image(track))
+	let thumbnail = sensor(image(thumb)
 		.content_fit(ContentFit::Cover)
 		.height(80)
-		.width(80);
+		.width(80))
+	.on_show(|_| Message::ImagePopIn(track.clone()))
+	.key_ref(&track.id);
 
 	let name = text(&track.name)
 		.size(20)

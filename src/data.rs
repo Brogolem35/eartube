@@ -1,17 +1,13 @@
 use std::{
 	fs,
-	mem::ManuallyDrop,
 	path::PathBuf,
 	sync::{LazyLock, RwLock},
-	thread,
 	time::{SystemTime, UNIX_EPOCH},
 };
 
 use dashmap::DashMap;
 use foldhash::fast::FixedState;
-use iced::widget::image;
-use iter_tools::Itertools;
-use rustypipe::model::{TrackItem, traits::YtEntity};
+use rustypipe::model::TrackItem;
 use serde::{Deserialize, Serialize};
 
 pub static TRACK_STATS: LazyLock<DashMap<String, TrackStat, FixedState>> =
@@ -116,73 +112,7 @@ pub struct Playlist {
 	tracks: Vec<TrackItem>,
 }
 
-enum ImageState {
-	Loading(ManuallyDrop<thread::JoinHandle<image::Handle>>),
-	Loaded(image::Handle),
-}
-
-impl ImageState {
-	fn load_new(id: String, url: String) -> Self {
-		let h = thread::spawn(move || {
-			if let Ok(b) = cacache::read_sync(img_cache_dir(), &id) {
-				image::Handle::from_bytes(b)
-			} else if let Ok(b) = reqwest::blocking::get(&url)
-				&& let Ok(b) = b.bytes()
-			{
-				let _ = cacache::write_sync(img_cache_dir(), &id, &b);
-				image::Handle::from_bytes(b)
-			} else {
-				Self::placeholder()
-			}
-		});
-
-		Self::Loading(ManuallyDrop::new(h))
-	}
-
-	fn get(&mut self) -> image::Handle {
-		match self {
-			ImageState::Loading(h) if h.is_finished() => {
-				// SAFETY: `join` requires the ownership and we only take the handle once.
-				let h = unsafe { ManuallyDrop::take(h) };
-				let res = h.join().unwrap();
-				*self = ImageState::Loaded(res.clone());
-				res
-			}
-			ImageState::Loaded(h) => h.clone(),
-			_ => Self::placeholder(),
-		}
-	}
-
-	fn placeholder() -> image::Handle {
-		// image::Handle::from_rgba(0, 0, Vec::new()) can cause crashes when tried to scale up
-		image::Handle::from_rgba(1, 1, vec![0; 4])
-	}
-}
-
-static THUMBNAIL_MANAGER: LazyLock<DashMap<String, ImageState>> = LazyLock::new(DashMap::new);
-
-pub fn get_track_image(track: &TrackItem) -> image::Handle {
-	use dashmap::Entry;
-
-	let id = track.id().to_string();
-	let url = track
-		.cover
-		.iter()
-		.sorted_unstable_by_key(|t| std::cmp::Reverse(t.height))
-		.next()
-		.unwrap()
-		.clone()
-		.url;
-	match THUMBNAIL_MANAGER.entry(id.clone()) {
-		Entry::Vacant(view) => {
-			view.insert(ImageState::load_new(id, url));
-			ImageState::placeholder()
-		}
-		Entry::Occupied(mut view) => view.get_mut().get(),
-	}
-}
-
-fn data_dir() -> PathBuf {
+pub fn data_dir() -> PathBuf {
 	let name = match cfg!(debug_assertions) {
 		true => "eartube-debug",
 		false => "eartube",
@@ -190,11 +120,11 @@ fn data_dir() -> PathBuf {
 	dirs::data_local_dir().expect("Unsupported OS").join(name)
 }
 
-fn cache_dir() -> PathBuf {
+pub fn cache_dir() -> PathBuf {
 	data_dir().join("cache")
 }
 
-fn img_cache_dir() -> PathBuf {
+pub fn img_cache_dir() -> PathBuf {
 	cache_dir().join("img")
 }
 

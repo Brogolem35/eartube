@@ -2,6 +2,7 @@ mod data;
 mod gui;
 mod playback;
 mod player;
+mod thumbnail;
 
 use anyhow::Context;
 use rustypipe::{
