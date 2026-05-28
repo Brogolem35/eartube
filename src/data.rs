@@ -151,6 +151,10 @@ pub fn img_cache_dir() -> PathBuf {
 	cache_dir().join("img")
 }
 
+pub fn audio_cache_dir() -> PathBuf {
+	cache_dir().join("audio")
+}
+
 pub type UnixTime = u64;
 
 pub fn unix_time() -> UnixTime {

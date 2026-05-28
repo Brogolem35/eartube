@@ -56,20 +56,20 @@ impl AppState {
 	fn view_playback_control(&self) -> Column<'_, Message> {
 		let pause_button_icon = pause_button_icon(self.playback_view.player.pause);
 		let button_height = Length::Fixed(30.0);
-		let button_widht = Length::Fixed(40.0);
+		let button_width = Length::Fixed(40.0);
 
 		let skipp_button = button(svg(svg::Handle::from_memory(icons::PREV)))
 			.on_press(Message::SkipPrev)
 			.height(button_height)
-			.width(button_widht);
+			.width(button_width);
 		let pause_button = button(svg(pause_button_icon))
 			.on_press(Message::TogglePause)
 			.height(button_height)
-			.width(button_widht);
+			.width(button_width);
 		let skipn_button = button(svg(svg::Handle::from_memory(icons::NEXT)))
 			.on_press(Message::SkipNext)
 			.height(button_height)
-			.width(button_widht);
+			.width(button_width);
 
 		let playback_progress = self.view_playback_progress();
 		let control_buttons = row![skipp_button, pause_button, skipn_button];
@@ -80,7 +80,7 @@ impl AppState {
 		let favorited = current_track.map(|t| is_favorited(&t.id)).unwrap_or(false);
 		let favorite_button = button(svg(favorite_button_icon(favorited)))
 			.height(button_height)
-			.width(button_widht)
+			.width(button_width)
 			.on_press_maybe(
 				current_track.map(|t| Message::ToggleFavorite(t.id.clone())),
 			);
