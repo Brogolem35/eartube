@@ -307,7 +307,12 @@ pub struct PlaybackView {
 	pub player: PlayerView,
 }
 
-impl PlaybackView {}
+impl PlaybackView {
+	pub fn current_track(&self) -> Option<&TrackItem> {
+		let i = self.index?;
+		self.list.get(i)
+	}
+}
 
 #[derive(Debug, Default, Clone)]
 pub struct PlayerView {

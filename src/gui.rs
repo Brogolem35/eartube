@@ -16,6 +16,7 @@ use rustypipe::model::TrackItem;
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 
 use crate::{
+	data::{is_favorited, toggle_favorite},
 	icons,
 	playback::{PlaybackCommand, PlaybackEvent, PlaybackView, playback_loop},
 	rp_testing,
@@ -75,12 +76,20 @@ impl AppState {
 
 		let volume_slider = self.view_volume_slider();
 
-		// Three equal columns: spacer | buttons | slider
-		// This keeps buttons visually centered regardless of slider width.
-		let controls_row =
-			row![space().width(Length::Fill), control_buttons, volume_slider]
-				.align_y(Vertical::Center)
-				.spacing(50);
+		let current_track = self.playback_view.current_track();
+		let favorited = current_track.map(|t| is_favorited(&t.id)).unwrap_or(false);
+		let favorite_button = button(svg(favorite_button_icon(favorited)))
+			.height(button_height)
+			.width(button_widht)
+			.on_press_maybe(
+				current_track.map(|t| Message::ToggleFavorite(t.id.clone())),
+			);
+		let left_row =
+			row![space().width(Length::Fill), favorite_button].width(Length::Fill);
+
+		let controls_row = row![left_row, control_buttons, volume_slider]
+			.align_y(Vertical::Center)
+			.spacing(50);
 
 		column![playback_progress, controls_row,]
 			.align_x(Horizontal::Center)
@@ -141,6 +150,7 @@ pub enum Message {
 	SearchEdit(String),
 	ImagePopIn(ThumbnailSource),
 	ImageLoaded { id: String, img: image::Handle },
+	ToggleFavorite(String),
 	FetchPlaylist(Result<Vec<TrackItem>, String>),
 }
 
@@ -286,6 +296,10 @@ fn update(state: &mut AppState, message: Message) -> Task<Message> {
 			state.thumbnail_manager.set(id, img);
 			Task::none()
 		}
+		Message::ToggleFavorite(id) => {
+			toggle_favorite(&id);
+			Task::none()
+		}
 		Message::Exit => iced::exit(),
 	}
 }
@@ -316,6 +330,13 @@ fn pause_button_icon(paused: bool) -> svg::Handle {
 	match paused {
 		true => svg::Handle::from_memory(icons::PLAY),
 		false => svg::Handle::from_memory(icons::PAUSE),
+	}
+}
+
+fn favorite_button_icon(favorited: bool) -> svg::Handle {
+	match favorited {
+		true => svg::Handle::from_memory(icons::FAVORITED),
+		false => svg::Handle::from_memory(icons::FAVORITE),
 	}
 }
 

@@ -80,6 +80,27 @@ pub fn update_track_view(track_item: TrackItem) {
 	save_track_stats();
 }
 
+pub fn is_favorited(id: &str) -> bool {
+	TRACK_STATS
+		.get(id)
+		.map(|t| t.favorited.is_some())
+		.unwrap_or(false)
+}
+
+pub fn toggle_favorite(id: &str) {
+	match TRACK_STATS.get_mut(id) {
+		Some(mut t) => {
+			t.favorited = match t.favorited {
+				Some(_) => None,
+				None => Some(unix_time()),
+			}
+		}
+		None => {}
+	}
+
+	save_track_stats();
+}
+
 pub static PLAYLISTS: RwLock<Vec<Playlist>> = RwLock::new(Vec::new());
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -87,7 +108,9 @@ pub struct TrackStat {
 	track: TrackItem,
 	views: u64,
 	last_viewed: UnixTime,
-	favorited: bool,
+
+	// Some(favoriting time) if it is favorited
+	favorited: Option<UnixTime>,
 }
 
 impl TrackStat {
@@ -96,7 +119,7 @@ impl TrackStat {
 			track,
 			views: 1,
 			last_viewed: unix_time(),
-			favorited: false,
+			favorited: None,
 		}
 	}
 
