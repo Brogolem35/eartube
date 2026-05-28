@@ -6,7 +6,7 @@ use tokio::{
 	sync::mpsc::{UnboundedReceiver, UnboundedSender},
 };
 
-use crate::{data::update_track_view, get_stream_url, player::Player};
+use crate::{data::update_track_view, player::Player};
 
 #[derive(Default)]
 pub struct Playback {
@@ -49,10 +49,8 @@ impl Playback {
 			.get_track(index)
 			.expect("Playlist index is greater than list size.")
 			.clone();
-		let yt_link = youtube_link(&track_item.id);
-		let stream_url = get_stream_url(&yt_link).await?;
 
-		self.player = Some(Player::new(&stream_url, self.volume).await?);
+		self.player = Some(Player::new(&track_item.id, self.volume).await?);
 		self.index = Some(index);
 		update_track_view(track_item);
 
@@ -296,7 +294,7 @@ pub async fn playback_idle_tick(pl: &mut Playback, tx: &UnboundedSender<Playback
 	}
 }
 
-fn youtube_link(id: &str) -> String {
+pub fn youtube_link(id: &str) -> String {
 	format!("https://music.youtube.com/watch?v={}", id)
 }
 

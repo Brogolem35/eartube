@@ -4,6 +4,7 @@ mod icons;
 mod playback;
 mod player;
 mod thumbnail;
+mod audio_cache;
 
 use anyhow::Context;
 use rustypipe::{

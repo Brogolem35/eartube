@@ -2,7 +2,8 @@ use std::{sync::LazyLock, time::Duration};
 
 use anyhow::{Context, Ok, Result};
 use rodio::{Decoder, MixerDeviceSink, Source};
-use stream_download::{Settings, StreamDownload, storage::temp::TempStorageProvider};
+
+use crate::audio_cache;
 
 static SINK_HANDLE: LazyLock<MixerDeviceSink> =
 	LazyLock::new(|| rodio::DeviceSinkBuilder::open_default_sink().unwrap());
@@ -14,18 +15,8 @@ pub struct Player {
 
 impl Player {
 	pub async fn new(url: &str, volume: f32) -> Result<Self> {
-		static PREFECTH_AMOUNT: u64 = 4 * 1024;
-
-		let settings = Settings::default().prefetch_bytes(PREFECTH_AMOUNT);
-		let reader = StreamDownload::new_http(
-			url.parse()?,
-			TempStorageProvider::new(),
-			settings,
-		)
-		.await?;
-		let len_hint = reader
-			.content_length()
-			.context("StreamDownload: Content length could is None.")?;
+		let reader = audio_cache::get_audio(url).await?;
+		let len_hint = reader.len();
 
 		tokio::task::spawn_blocking(move || {
 			let source = Decoder::builder()
