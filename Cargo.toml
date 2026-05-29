@@ -19,5 +19,9 @@ serde_json = "1.0.150"
 stream-download = "0.24.1"
 tokio = { version = "1.52.3" }
 
+[profile.dev.package."*"]
+# Disable debug info from 3rd party libs
+debug = false
+
 [profile.release]
 codegen-units = 1
