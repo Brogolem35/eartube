@@ -13,6 +13,7 @@ use iced::{
 	window,
 };
 use rustypipe::model::TrackItem;
+use souvlaki::{MediaControlEvent, MediaControls};
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 
 use crate::{
@@ -32,12 +33,29 @@ struct AppState {
 
 	playback_tx: UnboundedSender<PlaybackCommand>,
 	playback_rx: UnboundedReceiver<PlaybackEvent>,
+
+	media_controls: MediaControls,
+	media_controls_rx: UnboundedReceiver<MediaControlEvent>,
 }
 
 impl AppState {
 	fn new() -> Self {
 		let (player_tx, player_rx) = mpsc::unbounded_channel();
 		let (event_tx, event_rx) = mpsc::unbounded_channel();
+
+		// TODO: Buggy as hell. Not sure if my code, library, or the DBus API is broken.
+		// Probably the last one as the Free Desktop kinda likes making shit standards.
+		// TODO: Probably won't work on Windows. Use a real OS.
+		let mut media_controls = MediaControls::new(souvlaki::PlatformConfig {
+			dbus_name: "eartube",
+			display_name: "Eartube",
+			hwnd: None,
+		})
+		.unwrap();
+		let (mc_tx, mc_rx) = mpsc::unbounded_channel();
+		let _ = media_controls.attach(move |e| {
+			let _ = mc_tx.send(e);
+		});
 
 		tokio::spawn(playback_loop(player_rx, event_tx));
 
@@ -50,6 +68,9 @@ impl AppState {
 
 			playback_tx: player_tx,
 			playback_rx: event_rx,
+
+			media_controls,
+			media_controls_rx: mc_rx,
 		}
 	}
 
@@ -136,6 +157,8 @@ pub enum Message {
 	Exit,
 	Play,
 	Tick,
+	/// Has a seperate tick than the rest due to being able to process signals only once every second.
+	MediaControlTick,
 	TogglePause,
 	SeekForward,
 	SeekBackward,
@@ -232,13 +255,53 @@ fn update(state: &mut AppState, message: Message) -> Task<Message> {
 				match event {
 					PlaybackEvent::PlaylistUpdated(view) => {
 						state.playback_view = view;
+						let meta = MediaMeta::from(&state.playback_view);
+						let _ = state
+							.media_controls
+							.set_metadata(meta.metadata);
 					}
 					PlaybackEvent::PlayerUpdated(view) => {
 						state.playback_view.player = view;
 					}
 				}
 			}
+			while let Ok(event) = state.media_controls_rx.try_recv() {
+				match event {
+					MediaControlEvent::Play => {
+						state.playback_tx
+							.send(PlaybackCommand::TogglePause)
+							.unwrap();
+					}
+					MediaControlEvent::Pause => {
+						state.playback_tx
+							.send(PlaybackCommand::TogglePause)
+							.unwrap();
+					}
+					MediaControlEvent::Toggle => {
+						state.playback_tx
+							.send(PlaybackCommand::TogglePause)
+							.unwrap();
+					}
+					MediaControlEvent::Next => {
+						state.playback_tx
+							.send(PlaybackCommand::SkipNext)
+							.unwrap();
+					}
+					MediaControlEvent::Previous => {
+						state.playback_tx
+							.send(PlaybackCommand::SkipPrev)
+							.unwrap();
+					}
+					MediaControlEvent::Quit => return iced::exit(),
+					_ => {}
+				}
+			}
 
+			Task::none()
+		}
+		Message::MediaControlTick => {
+			let meta = MediaMeta::from(&state.playback_view);
+			let _ = state.media_controls.set_playback(meta.playback);
 			Task::none()
 		}
 		Message::SeekForward => {
@@ -305,6 +368,7 @@ fn update(state: &mut AppState, message: Message) -> Task<Message> {
 fn subscription(_state: &AppState) -> Subscription<Message> {
 	Subscription::batch([
 		iced::time::every(Duration::from_millis(50)).map(|_| Message::Tick),
+		iced::time::every(Duration::from_secs(1)).map(|_| Message::MediaControlTick),
 		event::listen().filter_map(|e| match e {
 			event::Event::Window(window::Event::CloseRequested) => {
 				println!("Received close request. Emitting Message::Exit.");
@@ -399,4 +463,40 @@ fn track_card(track: &TrackItem, current: bool, thumb: image::Handle) -> Element
 			..Default::default()
 		})
 		.into()
+}
+
+#[derive(Debug)]
+struct MediaMeta<'a> {
+	metadata: souvlaki::MediaMetadata<'a>,
+	playback: souvlaki::MediaPlayback,
+}
+
+impl<'a> From<&'a PlaybackView> for MediaMeta<'a> {
+	fn from(value: &'a PlaybackView) -> Self {
+		use souvlaki::*;
+		let Some(track) = value.current_track() else {
+			return Self {
+				metadata: MediaMetadata::default(),
+				playback: MediaPlayback::Stopped,
+			};
+		};
+
+		let metadata = MediaMetadata {
+			title: Some(&track.name),
+			album: track.album.as_ref().map(|a| &*a.name),
+			artist: track.artists.iter().next().map(|a| &*a.name),
+			cover_url: None, // TODO: may do something with it
+			duration: Some(value.player.length),
+		};
+		let pos = MediaPosition(value.player.pos);
+		let playback = match value.player.pause {
+			false => MediaPlayback::Playing {
+				progress: Some(pos),
+			},
+			true => MediaPlayback::Paused {
+				progress: Some(pos),
+			},
+		};
+		Self { metadata, playback }
+	}
 }
