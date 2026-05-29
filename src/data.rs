@@ -10,6 +10,8 @@ use foldhash::fast::FixedState;
 use rustypipe::model::TrackItem;
 use serde::{Deserialize, Serialize};
 
+use crate::audio_cache;
+
 pub static TRACK_STATS: LazyLock<DashMap<String, TrackStat, FixedState>> =
 	LazyLock::new(load_track_stats);
 
@@ -92,7 +94,10 @@ pub fn toggle_favorite(id: &str) {
 		Some(mut t) => {
 			t.favorited = match t.favorited {
 				Some(_) => None,
-				None => Some(unix_time()),
+				None => {
+					audio_cache::fetch(id);
+					Some(unix_time())
+				}
 			}
 		}
 		None => {}

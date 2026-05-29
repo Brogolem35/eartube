@@ -1,10 +1,10 @@
+mod audio_cache;
 mod data;
 mod gui;
 mod icons;
 mod playback;
 mod player;
 mod thumbnail;
-mod audio_cache;
 
 use anyhow::Context;
 use rustypipe::{
@@ -12,7 +12,6 @@ use rustypipe::{
 	model::{MusicItem, TrackItem},
 };
 use serde::Deserialize;
-use tokio::process::Command;
 
 use crate::gui::iced_main;
 
@@ -47,7 +46,7 @@ pub async fn get_stream_url(youtube_url: &str) -> anyhow::Result<String> {
 		url: String,
 	}
 
-	let output = Command::new("yt-dlp")
+	let output = tokio::process::Command::new("yt-dlp")
 		.args(["-f", "ba[ext=m4a]", "--dump-single-json", youtube_url])
 		.output()
 		.await?;

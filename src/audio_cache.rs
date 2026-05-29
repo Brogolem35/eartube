@@ -25,7 +25,7 @@ pub async fn get_audio(id: &str) -> anyhow::Result<AudioSource> {
 
 	// `insert` returns true if key used to be vacant
 	if is_favorited(id) && DOWNLOADING.insert(id.to_owned()) {
-		fetch(id.to_owned(), stream_url.clone());
+		tokio::spawn(fetch_inner(id.to_owned(), stream_url.clone()));
 	}
 
 	let settings = Settings::default().prefetch_bytes(PREFECTH_AMOUNT);
@@ -35,17 +35,33 @@ pub async fn get_audio(id: &str) -> anyhow::Result<AudioSource> {
 	Ok(AudioSource::Remote(reader))
 }
 
-pub fn fetch(id: String, url: String) {
-	tokio::spawn(async move {
-		println!("Downloading audio: {}", &id);
-		if let Ok(b) = reqwest::get(url).await
-			&& let Ok(b) = b.bytes().await
-		{
-			let _ = cacache::write(audio_cache_dir(), &id, b).await;
-			DOWNLOADING.remove(&id);
-			println!("Downloaded audio: {}", &id);
+pub fn fetch(id: &str) {
+	let dir = audio_cache_dir();
+	match cacache::metadata_sync(&dir, id) {
+		// Metadata existing is not enough of a guarentee and `exists` takes integrity, not id
+		Ok(Some(md)) if cacache::exists_sync(&dir, &md.integrity) => {}
+		_ => {
+			if DOWNLOADING.insert(id.to_owned()) {
+				let id = id.to_owned();
+				let yt_link = youtube_link(&id);
+				tokio::spawn(async move {
+					let url = get_stream_url(&yt_link).await.unwrap();
+					fetch_inner(id.to_owned(), url.to_owned()).await
+				});
+			}
 		}
-	});
+	}
+}
+
+async fn fetch_inner(id: String, url: String) {
+	println!("Downloading audio: {}", &id);
+	if let Ok(b) = reqwest::get(url).await
+		&& let Ok(b) = b.bytes().await
+	{
+		let _ = cacache::write(audio_cache_dir(), &id, b).await;
+		DOWNLOADING.remove(&id);
+		println!("Downloaded audio: {}", &id);
+	}
 }
 
 pub enum AudioSource {
