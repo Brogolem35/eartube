@@ -484,7 +484,7 @@ impl<'a> From<&'a PlaybackView> for MediaMeta<'a> {
 		let metadata = MediaMetadata {
 			title: Some(&track.name),
 			album: track.album.as_ref().map(|a| &*a.name),
-			artist: track.artists.iter().next().map(|a| &*a.name),
+			artist: track.artists.first().map(|a| &*a.name),
 			cover_url: None, // TODO: may do something with it
 			duration: Some(value.player.length),
 		};
