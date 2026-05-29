@@ -81,9 +81,7 @@ impl AppState {
 		let favorite_button = button(svg(favorite_button_icon(favorited)))
 			.height(button_height)
 			.width(button_width)
-			.on_press_maybe(
-				current_track.map(|t| Message::ToggleFavorite(t.id.clone())),
-			);
+			.on_press_maybe(current_track.map(|t| Message::ToggleFavorite(t.clone())));
 		let left_row =
 			row![space().width(Length::Fill), favorite_button].width(Length::Fill);
 
@@ -150,7 +148,7 @@ pub enum Message {
 	SearchEdit(String),
 	ImagePopIn(ThumbnailSource),
 	ImageLoaded { id: String, img: image::Handle },
-	ToggleFavorite(String),
+	ToggleFavorite(TrackItem),
 	FetchPlaylist(Result<Vec<TrackItem>, String>),
 }
 
@@ -296,8 +294,8 @@ fn update(state: &mut AppState, message: Message) -> Task<Message> {
 			state.thumbnail_manager.set(id, img);
 			Task::none()
 		}
-		Message::ToggleFavorite(id) => {
-			toggle_favorite(&id);
+		Message::ToggleFavorite(track) => {
+			toggle_favorite(&track);
 			Task::none()
 		}
 		Message::Exit => iced::exit(),

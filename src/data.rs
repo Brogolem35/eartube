@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::audio_cache;
 
-pub static TRACK_STATS: LazyLock<DashMap<String, TrackStat, FixedState>> =
+static TRACK_STATS: LazyLock<DashMap<String, TrackStat, FixedState>> =
 	LazyLock::new(load_track_stats);
 
 fn get_stats_path() -> PathBuf {
@@ -82,28 +82,85 @@ pub fn update_track_view(track_item: TrackItem) {
 	save_track_stats();
 }
 
-pub fn is_favorited(id: &str) -> bool {
-	TRACK_STATS
-		.get(id)
-		.map(|t| t.favorited.is_some())
-		.unwrap_or(false)
+static FAVORITES: LazyLock<RwLock<Vec<TrackItem>>> =
+	LazyLock::new(|| RwLock::new(load_favorites()));
+
+fn get_favorites_path() -> PathBuf {
+	data_dir().join("favorites.json")
 }
 
-pub fn toggle_favorite(id: &str) {
-	match TRACK_STATS.get_mut(id) {
-		Some(mut t) => {
-			t.favorited = match t.favorited {
-				Some(_) => None,
-				None => {
-					audio_cache::fetch(id);
-					Some(unix_time())
-				}
-			}
+fn load_favorites() -> Vec<TrackItem> {
+	let path = get_favorites_path();
+	if !path.exists() {
+		eprintln!("favorites.json does not exist, creating...");
+
+		// Create parent directories and an empty file
+		if let Some(parent) = path.parent()
+			&& let Err(e) = fs::create_dir_all(parent)
+		{
+			panic!("Failed to create data directory: {e}");
 		}
-		None => {}
+		if let Err(e) = fs::write(&path, "[]") {
+			panic!("Failed to create favorites.json: {e}");
+		}
+		return Vec::new();
 	}
 
-	save_track_stats();
+	let content = match fs::read_to_string(&path) {
+		Ok(contents) => contents,
+		Err(e) => panic!("Failed to read favorites.json: {e}"),
+	};
+
+	let res = match serde_json::from_str(&content) {
+		Ok(res) => res,
+		Err(e) => panic!("Failed to read favorites.json: {e}"),
+	};
+
+	let updated_content = serde_json::to_string_pretty(&res).unwrap();
+	if updated_content != content {
+		eprintln!(
+			"favorites.json does not match its deserialized counterpart, updating..."
+		);
+		save_favorites_content(updated_content);
+	}
+
+	res
+}
+
+pub fn save_favorites() {
+	match serde_json::to_string_pretty(&*FAVORITES) {
+		Ok(json) => save_favorites_content(json),
+		Err(e) => panic!("Failed to serialize favorites.json: {e}"),
+	}
+}
+
+fn save_favorites_content(content: String) {
+	let path = get_favorites_path();
+	if let Err(e) = fs::write(&path, content) {
+		eprintln!("Failed to save favorites.json: {e}");
+	}
+}
+
+pub fn is_favorited(id: &str) -> bool {
+	FAVORITES.read().unwrap().iter().any(|t| t.id == id)
+}
+
+pub fn toggle_favorite(track: &TrackItem) {
+	{
+		let mut lock = FAVORITES.write().unwrap();
+		let id = track.id.as_str();
+		match lock.iter().position(|t| t.id == id) {
+			Some(i) => {
+				lock.remove(i);
+			}
+			None => {
+				audio_cache::fetch(id);
+				lock.push(track.clone());
+			}
+		};
+	}
+
+	save_favorites();
 }
 
 pub static PLAYLISTS: RwLock<Vec<Playlist>> = RwLock::new(Vec::new());
@@ -113,9 +170,6 @@ pub struct TrackStat {
 	track: TrackItem,
 	views: u64,
 	last_viewed: UnixTime,
-
-	// Some(favoriting time) if it is favorited
-	favorited: Option<UnixTime>,
 }
 
 impl TrackStat {
@@ -124,7 +178,6 @@ impl TrackStat {
 			track,
 			views: 1,
 			last_viewed: unix_time(),
-			favorited: None,
 		}
 	}
 
