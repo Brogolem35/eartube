@@ -47,8 +47,8 @@ struct AppState {
 	// Favorites list is cloned everytime it is updated to avoid constant locking and lifetime issues.
 	favorites_view: Vec<TrackItem>,
 
-	view: View,
-	playlist_view: bool,
+	view: Scene,
+	playlist_scene: bool,
 
 	thumbnail_manager: ThumbnailCache,
 
@@ -87,8 +87,8 @@ impl AppState {
 
 			favorites_view: data::get_favorites().clone(),
 
-			view: View::MainMenu,
-			playlist_view: false,
+			view: Scene::MainMenu,
+			playlist_scene: false,
 
 			thumbnail_manager: ThumbnailCache::default(),
 
@@ -101,9 +101,9 @@ impl AppState {
 	}
 
 	fn view(&self) -> Element<'_, Message> {
-		match self.playlist_view {
+		match self.playlist_scene {
 			false => match self.view {
-				View::MainMenu => self.view_main_menu(),
+				Scene::MainMenu => self.view_main_menu(),
 			},
 			true => self.view_playlist(),
 		}
@@ -329,7 +329,7 @@ impl AppState {
 				Task::none()
 			}
 			Message::TogglePlaylistView => {
-				self.playlist_view = !self.playlist_view;
+				self.playlist_scene = !self.playlist_scene;
 				Task::none()
 			}
 			Message::SkipNext => {
@@ -667,6 +667,6 @@ fn ellipsize(s: &str, max_chars: usize) -> String {
 }
 
 #[derive(Clone, Copy, Debug)]
-enum View {
+enum Scene {
 	MainMenu,
 }
