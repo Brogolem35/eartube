@@ -346,3 +346,39 @@ impl PlayerView {
 		)
 	}
 }
+
+#[derive(Debug)]
+pub struct MediaMeta<'a> {
+	pub metadata: souvlaki::MediaMetadata<'a>,
+	pub playback: souvlaki::MediaPlayback,
+}
+
+impl<'a> From<&'a PlaybackView> for MediaMeta<'a> {
+	fn from(value: &'a PlaybackView) -> Self {
+		use souvlaki::*;
+		let Some(track) = value.current_track() else {
+			return Self {
+				metadata: MediaMetadata::default(),
+				playback: MediaPlayback::Stopped,
+			};
+		};
+
+		let metadata = MediaMetadata {
+			title: Some(&track.name),
+			album: track.album.as_ref().map(|a| &*a.name),
+			artist: track.artists.first().map(|a| &*a.name),
+			cover_url: None, // TODO: may do something with it
+			duration: Some(value.player.length),
+		};
+		let pos = MediaPosition(value.player.pos);
+		let playback = match value.player.pause {
+			false => MediaPlayback::Playing {
+				progress: Some(pos),
+			},
+			true => MediaPlayback::Paused {
+				progress: Some(pos),
+			},
+		};
+		Self { metadata, playback }
+	}
+}

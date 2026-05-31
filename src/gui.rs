@@ -19,7 +19,7 @@ use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 use crate::{
 	data::{is_favorited, toggle_favorite},
 	icons,
-	playback::{PlaybackCommand, PlaybackEvent, PlaybackView, playback_loop},
+	playback::{MediaMeta, PlaybackCommand, PlaybackEvent, PlaybackView, playback_loop},
 	rp_testing,
 	thumbnail::{ThumbnailCache, ThumbnailSource},
 };
@@ -459,40 +459,4 @@ fn track_card(track: &TrackItem, current: bool, thumb: image::Handle) -> Element
 			..Default::default()
 		})
 		.into()
-}
-
-#[derive(Debug)]
-struct MediaMeta<'a> {
-	metadata: souvlaki::MediaMetadata<'a>,
-	playback: souvlaki::MediaPlayback,
-}
-
-impl<'a> From<&'a PlaybackView> for MediaMeta<'a> {
-	fn from(value: &'a PlaybackView) -> Self {
-		use souvlaki::*;
-		let Some(track) = value.current_track() else {
-			return Self {
-				metadata: MediaMetadata::default(),
-				playback: MediaPlayback::Stopped,
-			};
-		};
-
-		let metadata = MediaMetadata {
-			title: Some(&track.name),
-			album: track.album.as_ref().map(|a| &*a.name),
-			artist: track.artists.first().map(|a| &*a.name),
-			cover_url: None, // TODO: may do something with it
-			duration: Some(value.player.length),
-		};
-		let pos = MediaPosition(value.player.pos);
-		let playback = match value.player.pause {
-			false => MediaPlayback::Playing {
-				progress: Some(pos),
-			},
-			true => MediaPlayback::Paused {
-				progress: Some(pos),
-			},
-		};
-		Self { metadata, playback }
-	}
 }
