@@ -74,6 +74,204 @@ impl AppState {
 		}
 	}
 
+	fn view(&self) -> Element<'_, Message> {
+		let search_input = text_input("Search", &self.search_input)
+			.on_input(Message::SearchEdit)
+			.on_submit(Message::Play);
+		let play_button = button("Play").on_press(Message::Play);
+
+		let playback_control = self.view_playback_control();
+
+		let playlist_elements = scrollable(Column::from_iter(
+			self.playback_view
+				.list
+				.iter()
+				.enumerate()
+				.map(|(index, item)| {
+					let msg = Message::SkipTo(index);
+					let current = self
+						.playback_view
+						.index
+						.map(|i| index == i)
+						.unwrap_or(false);
+					let thumb = self.thumbnail_manager.get(&item.id);
+					let card = track_card(item, current, thumb);
+					mouse_area(card).on_press(msg).into()
+				}),
+		))
+		.width(Length::Fill)
+		.height(Length::Fill)
+		.spacing(0);
+
+		column![
+			search_input,
+			play_button,
+			playlist_elements,
+			playback_control,
+		]
+		.height(Length::Fill)
+		.width(Length::Fill)
+		.into()
+	}
+
+	fn update(&mut self, message: Message) -> Task<Message> {
+		match message {
+			Message::Play => {
+				let arg = self.search_input.clone();
+				Task::perform(
+					async move { rp_testing(&arg).await.map_err(|e| e.to_string()) },
+					Message::FetchPlaylist,
+				)
+			}
+			Message::FetchPlaylist(result) => {
+				let items = match result {
+					Ok(i) => i,
+					Err(e) => {
+						eprintln!("Error: {:?}", e);
+						return Task::none();
+					}
+				};
+
+				self.playback_tx
+					.send(PlaybackCommand::LoadPlaylist(items))
+					.unwrap();
+				Task::none()
+			}
+			Message::SearchEdit(text) => {
+				self.search_input = text;
+				Task::none()
+			}
+			Message::Tick => self.tick(),
+			Message::MediaControlTick => {
+				let meta = MediaMeta::from(&self.playback_view);
+				let _ = self.media_controls.set_playback(meta.playback);
+				Task::none()
+			}
+			Message::SeekForward => {
+				self.playback_tx.send(PlaybackCommand::SeekForward).unwrap();
+				Task::none()
+			}
+			Message::SeekBackward => {
+				self.playback_tx
+					.send(PlaybackCommand::SeekBackward)
+					.unwrap();
+				Task::none()
+			}
+			Message::TogglePause => {
+				self.playback_tx.send(PlaybackCommand::TogglePause).unwrap();
+				Task::none()
+			}
+			Message::SkipNext => {
+				self.playback_tx.send(PlaybackCommand::SkipNext).unwrap();
+				Task::none()
+			}
+			Message::SkipPrev => {
+				self.playback_tx.send(PlaybackCommand::SkipPrev).unwrap();
+				Task::none()
+			}
+			Message::SkipTo(i) => {
+				self.playback_tx.send(PlaybackCommand::SkipTo(i)).unwrap();
+				Task::none()
+			}
+			Message::PlaybackSliderHold(pos) => {
+				self.playback_hold_pos = Some(pos);
+				Task::none()
+			}
+			Message::PlaybackSliderRelease => {
+				let Some(pos) = self.playback_hold_pos.take() else {
+					return Task::none();
+				};
+				self.playback_tx.send(PlaybackCommand::Seek(pos)).unwrap();
+
+				Task::none()
+			}
+			Message::VolumeChanged(v) => {
+				self.playback_tx
+					.send(PlaybackCommand::SetVolume(v))
+					.unwrap();
+				Task::none()
+			}
+			Message::ImagePopIn(track) => self.thumbnail_manager.fetch(track),
+			Message::ImageLoaded { id, img } => {
+				self.thumbnail_manager.set(id, img);
+				Task::none()
+			}
+			Message::ToggleFavorite(track) => {
+				toggle_favorite(&track);
+				Task::none()
+			}
+			Message::Exit => iced::exit(),
+		}
+	}
+
+	fn subscription(&self) -> Subscription<Message> {
+		Subscription::batch([
+			iced::time::every(Duration::from_millis(50)).map(|_| Message::Tick),
+			iced::time::every(Duration::from_secs(1))
+				.map(|_| Message::MediaControlTick),
+			event::listen().filter_map(|e| match e {
+				event::Event::Window(window::Event::CloseRequested) => {
+					println!("Received close request. Emitting Message::Exit.");
+					Some(Message::Exit)
+				}
+				_ => None,
+			}),
+			keyboard::listen().filter_map(|k| match k {
+				keyboard::Event::KeyPressed { key, .. } => match key {
+					Key::Named(Named::ArrowRight) => Some(Message::SeekForward),
+					Key::Named(Named::ArrowLeft) => Some(Message::SeekBackward),
+					Key::Named(Named::Space) => Some(Message::TogglePause),
+					_ => None,
+				},
+				_ => None,
+			}),
+		])
+	}
+
+	fn tick(&mut self) -> Task<Message> {
+		while let Ok(event) = self.playback_rx.try_recv() {
+			match event {
+				PlaybackEvent::PlaylistUpdated(view) => {
+					self.playback_view = view;
+					let meta = MediaMeta::from(&self.playback_view);
+					let _ = self.media_controls.set_metadata(meta.metadata);
+				}
+				PlaybackEvent::PlayerUpdated(view) => {
+					self.playback_view.player = view;
+				}
+			}
+		}
+		while let Ok(event) = self.media_controls_rx.try_recv() {
+			match event {
+				MediaControlEvent::Play => {
+					self.playback_tx
+						.send(PlaybackCommand::TogglePause)
+						.unwrap();
+				}
+				MediaControlEvent::Pause => {
+					self.playback_tx
+						.send(PlaybackCommand::TogglePause)
+						.unwrap();
+				}
+				MediaControlEvent::Toggle => {
+					self.playback_tx
+						.send(PlaybackCommand::TogglePause)
+						.unwrap();
+				}
+				MediaControlEvent::Next => {
+					self.playback_tx.send(PlaybackCommand::SkipNext).unwrap();
+				}
+				MediaControlEvent::Previous => {
+					self.playback_tx.send(PlaybackCommand::SkipPrev).unwrap();
+				}
+				MediaControlEvent::Quit => return iced::exit(),
+				_ => {}
+			}
+		}
+
+		Task::none()
+	}
+
 	fn view_playback_control(&self) -> Column<'_, Message> {
 		let pause_button_icon = pause_button_icon(self.playback_view.player.pause);
 		let button_height = Length::Fixed(30.0);
@@ -170,222 +368,20 @@ pub enum Message {
 	VolumeChanged(f32),
 	SearchEdit(String),
 	ImagePopIn(ThumbnailSource),
-	ImageLoaded { id: String, img: image::Handle },
+	ImageLoaded {
+		id: String,
+		img: image::Handle,
+	},
 	ToggleFavorite(TrackItem),
 	FetchPlaylist(Result<Vec<TrackItem>, String>),
 }
 
 pub fn iced_main() -> iced::Result {
-	iced::application(AppState::new, update, view)
+	iced::application(AppState::new, AppState::update, AppState::view)
 		.title("Eartube")
 		.exit_on_close_request(false)
-		.subscription(subscription)
+		.subscription(AppState::subscription)
 		.run()
-}
-
-fn view(state: &AppState) -> Element<'_, Message> {
-	let search_input = text_input("Search", &state.search_input)
-		.on_input(Message::SearchEdit)
-		.on_submit(Message::Play);
-	let play_button = button("Play").on_press(Message::Play);
-
-	let playback_control = state.view_playback_control();
-
-	let playlist_elements = scrollable(Column::from_iter(
-		state.playback_view
-			.list
-			.iter()
-			.enumerate()
-			.map(|(index, item)| {
-				let msg = Message::SkipTo(index);
-				let current = state
-					.playback_view
-					.index
-					.map(|i| index == i)
-					.unwrap_or(false);
-				let thumb = state.thumbnail_manager.get(&item.id);
-				let card = track_card(item, current, thumb);
-				mouse_area(card).on_press(msg).into()
-			}),
-	))
-	.width(Length::Fill)
-	.height(Length::Fill)
-	.spacing(0);
-
-	column![
-		search_input,
-		play_button,
-		playlist_elements,
-		playback_control,
-	]
-	.height(Length::Fill)
-	.width(Length::Fill)
-	.into()
-}
-
-fn update(state: &mut AppState, message: Message) -> Task<Message> {
-	match message {
-		Message::Play => {
-			let arg = state.search_input.clone();
-			Task::perform(
-				async move { rp_testing(&arg).await.map_err(|e| e.to_string()) },
-				Message::FetchPlaylist,
-			)
-		}
-		Message::FetchPlaylist(result) => {
-			let items = match result {
-				Ok(i) => i,
-				Err(e) => {
-					eprintln!("Error: {:?}", e);
-					return Task::none();
-				}
-			};
-
-			state.playback_tx
-				.send(PlaybackCommand::LoadPlaylist(items))
-				.unwrap();
-			Task::none()
-		}
-		Message::SearchEdit(text) => {
-			state.search_input = text;
-			Task::none()
-		}
-		Message::Tick => {
-			while let Ok(event) = state.playback_rx.try_recv() {
-				match event {
-					PlaybackEvent::PlaylistUpdated(view) => {
-						state.playback_view = view;
-						let meta = MediaMeta::from(&state.playback_view);
-						let _ = state
-							.media_controls
-							.set_metadata(meta.metadata);
-					}
-					PlaybackEvent::PlayerUpdated(view) => {
-						state.playback_view.player = view;
-					}
-				}
-			}
-			while let Ok(event) = state.media_controls_rx.try_recv() {
-				match event {
-					MediaControlEvent::Play => {
-						state.playback_tx
-							.send(PlaybackCommand::TogglePause)
-							.unwrap();
-					}
-					MediaControlEvent::Pause => {
-						state.playback_tx
-							.send(PlaybackCommand::TogglePause)
-							.unwrap();
-					}
-					MediaControlEvent::Toggle => {
-						state.playback_tx
-							.send(PlaybackCommand::TogglePause)
-							.unwrap();
-					}
-					MediaControlEvent::Next => {
-						state.playback_tx
-							.send(PlaybackCommand::SkipNext)
-							.unwrap();
-					}
-					MediaControlEvent::Previous => {
-						state.playback_tx
-							.send(PlaybackCommand::SkipPrev)
-							.unwrap();
-					}
-					MediaControlEvent::Quit => return iced::exit(),
-					_ => {}
-				}
-			}
-
-			Task::none()
-		}
-		Message::MediaControlTick => {
-			let meta = MediaMeta::from(&state.playback_view);
-			let _ = state.media_controls.set_playback(meta.playback);
-			Task::none()
-		}
-		Message::SeekForward => {
-			state.playback_tx
-				.send(PlaybackCommand::SeekForward)
-				.unwrap();
-			Task::none()
-		}
-		Message::SeekBackward => {
-			state.playback_tx
-				.send(PlaybackCommand::SeekBackward)
-				.unwrap();
-			Task::none()
-		}
-		Message::TogglePause => {
-			state.playback_tx
-				.send(PlaybackCommand::TogglePause)
-				.unwrap();
-			Task::none()
-		}
-		Message::SkipNext => {
-			state.playback_tx.send(PlaybackCommand::SkipNext).unwrap();
-			Task::none()
-		}
-		Message::SkipPrev => {
-			state.playback_tx.send(PlaybackCommand::SkipPrev).unwrap();
-			Task::none()
-		}
-		Message::SkipTo(i) => {
-			state.playback_tx.send(PlaybackCommand::SkipTo(i)).unwrap();
-			Task::none()
-		}
-		Message::PlaybackSliderHold(pos) => {
-			state.playback_hold_pos = Some(pos);
-			Task::none()
-		}
-		Message::PlaybackSliderRelease => {
-			let Some(pos) = state.playback_hold_pos.take() else {
-				return Task::none();
-			};
-			state.playback_tx.send(PlaybackCommand::Seek(pos)).unwrap();
-
-			Task::none()
-		}
-		Message::VolumeChanged(v) => {
-			state.playback_tx
-				.send(PlaybackCommand::SetVolume(v))
-				.unwrap();
-			Task::none()
-		}
-		Message::ImagePopIn(track) => state.thumbnail_manager.fetch(track),
-		Message::ImageLoaded { id, img } => {
-			state.thumbnail_manager.set(id, img);
-			Task::none()
-		}
-		Message::ToggleFavorite(track) => {
-			toggle_favorite(&track);
-			Task::none()
-		}
-		Message::Exit => iced::exit(),
-	}
-}
-
-fn subscription(_state: &AppState) -> Subscription<Message> {
-	Subscription::batch([
-		iced::time::every(Duration::from_millis(50)).map(|_| Message::Tick),
-		iced::time::every(Duration::from_secs(1)).map(|_| Message::MediaControlTick),
-		event::listen().filter_map(|e| match e {
-			event::Event::Window(window::Event::CloseRequested) => {
-				println!("Received close request. Emitting Message::Exit.");
-				Some(Message::Exit)
-			}
-			_ => None,
-		}),
-		keyboard::listen().filter_map(|k| match k {
-			keyboard::Event::KeyPressed { key, .. } => match key {
-				Key::Named(Named::ArrowRight) => Some(Message::SeekForward),
-				Key::Named(Named::ArrowLeft) => Some(Message::SeekBackward),
-				Key::Named(Named::Space) => Some(Message::TogglePause),
-				_ => None,
-			},
-			_ => None,
-		}),
-	])
 }
 
 fn pause_button_icon(paused: bool) -> svg::Handle {
