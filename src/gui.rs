@@ -45,6 +45,8 @@ struct AppState {
 }
 
 impl AppState {
+	const SMALL_THUMBNAIL_SIZE: u32 = 80;
+
 	fn new() -> Self {
 		let (player_tx, player_rx) = mpsc::unbounded_channel();
 		let (event_tx, event_rx) = mpsc::unbounded_channel();
@@ -177,8 +179,10 @@ impl AppState {
 			.height(button_height)
 			.width(button_width)
 			.on_press_maybe(current_track.map(|t| Message::ToggleFavorite(t.clone())));
-		let left_row =
-			row![space().width(Length::Fill), favorite_button].width(Length::Fill);
+		let info = self.view_playback_informer();
+		let left_row = row![info, favorite_button]
+			.align_y(Vertical::Center)
+			.width(Length::Fill);
 
 		let controls_row = row![left_row, control_buttons, volume_slider]
 			.align_y(Vertical::Center)
@@ -187,6 +191,17 @@ impl AppState {
 		column![playback_progress, controls_row,]
 			.align_x(Horizontal::Center)
 			.padding(10)
+	}
+
+	fn view_playback_informer(&self) -> Element<'_, Message> {
+		let Some(t) = self.playback_view.current_track() else {
+			return space()
+				.height(Self::SMALL_THUMBNAIL_SIZE)
+				.width(Length::Fill)
+				.into();
+		};
+		let thumb = self.thumbnail_manager.get(&t.id);
+		controls_track_card(t, thumb)
 	}
 
 	fn view_playback_progress(&self) -> Row<'_, Message> {
@@ -478,8 +493,8 @@ fn track_card(track: &TrackItem, current: bool, thumb: image::Handle) -> Element
 
 	let thumbnail = sensor(image(thumb)
 		.content_fit(ContentFit::Cover)
-		.height(80)
-		.width(80))
+		.height(AppState::SMALL_THUMBNAIL_SIZE)
+		.width(AppState::SMALL_THUMBNAIL_SIZE))
 	.on_show(|_| Message::ImagePopIn(ThumbnailSource::new(track)))
 	.key_ref(&track.id);
 
@@ -576,6 +591,42 @@ fn favorite_track_card(
 			},
 			..Default::default()
 		})
+		.into()
+}
+
+fn controls_track_card(track: &TrackItem, thumb: image::Handle) -> Element<'_, Message> {
+	let (name_color, artist_color) = (Color::WHITE, Color::from_rgb8(180, 180, 180));
+
+	let thumbnail = sensor(image(thumb)
+		.content_fit(ContentFit::Cover)
+		.height(AppState::SMALL_THUMBNAIL_SIZE)
+		.width(AppState::SMALL_THUMBNAIL_SIZE))
+	.on_show(|_| Message::ImagePopIn(ThumbnailSource::new(track)))
+	.key_ref(&track.id);
+
+	let name = text(&track.name)
+		.size(16)
+		.style(move |_: &Theme| text::Style {
+			color: Some(name_color),
+		})
+		.wrapping(text::Wrapping::None);
+
+	let artists = text(track
+		.artists
+		.iter()
+		.map(|a| a.name.as_str())
+		.collect::<Vec<_>>()
+		.join(", "))
+	.size(14)
+	.style(move |_: &Theme| text::Style {
+		color: Some(artist_color),
+	})
+	.wrapping(text::Wrapping::None);
+
+	let column = column![name, artists].spacing(6).padding(10);
+
+	container(row![thumbnail, column].spacing(6))
+		.width(Length::Fill)
 		.into()
 }
 
