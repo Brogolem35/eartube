@@ -30,6 +30,7 @@ struct AppState {
 	playback_view: PlaybackView,
 	playback_hold_pos: Option<Duration>,
 
+	// Favorites list is cloned everytime it is updated to avoid constant locking and lifetime issues.
 	favorites_view: Vec<TrackItem>,
 
 	view: View,
@@ -94,9 +95,9 @@ impl AppState {
 		let search = self.view_search_input();
 		let playback_control = self.view_playback_control();
 
-		let fav_scroll = scrollable(row(self.favorites_view.iter().map(|item| {
+		let fav_scroll = scrollable(row(self.favorites_view.iter().rev().map(|item| {
 			let thumb = self.thumbnail_manager.get(&item.id);
-			mouse_area(track_card(item, false, thumb)).into()
+			mouse_area(favorite_track_card(item, false, thumb)).into()
 		})))
 		.horizontal();
 
@@ -504,6 +505,79 @@ fn track_card(track: &TrackItem, current: bool, thumb: image::Handle) -> Element
 			..Default::default()
 		})
 		.into()
+}
+
+fn favorite_track_card(
+	track: &TrackItem,
+	current: bool,
+	thumb: image::Handle,
+) -> Element<'_, Message> {
+	let (bg_color, border_color, name_color, artist_color) = if current {
+		(
+			Color::from_rgb8(45, 45, 60),
+			Color::from_rgb8(120, 120, 255),
+			Color::from_rgb8(255, 255, 255),
+			Color::from_rgb8(210, 210, 255),
+		)
+	} else {
+		(
+			Color::from_rgb8(30, 30, 30),
+			Color::from_rgb8(60, 60, 60),
+			Color::WHITE,
+			Color::from_rgb8(180, 180, 180),
+		)
+	};
+
+	let thumbnail = sensor(image(thumb)
+		.content_fit(ContentFit::Cover)
+		.height(200)
+		.width(200))
+	.on_show(|_| Message::ImagePopIn(ThumbnailSource::new(track)))
+	.key_ref(&track.id);
+
+	let name = text(ellipsize(&track.name, 20))
+		.size(14)
+		.style(move |_: &Theme| text::Style {
+			color: Some(name_color),
+		});
+
+	let artists = text(ellipsize(
+		&track.artists
+			.iter()
+			.map(|a| a.name.as_str())
+			.collect::<Vec<_>>()
+			.join(", "),
+		20,
+	))
+	.size(14)
+	.style(move |_: &Theme| text::Style {
+		color: Some(artist_color),
+	});
+
+	let column = column![thumbnail, name, artists].spacing(6).padding(10);
+
+	container(column)
+		.width(Length::Fill)
+		.style(move |_: &Theme| container::Style {
+			background: Some(Background::Color(bg_color)),
+			border: Border {
+				radius: Radius::new(12.0),
+				width: if current { 2.0 } else { 1.0 },
+				color: border_color,
+			},
+			..Default::default()
+		})
+		.into()
+}
+
+fn ellipsize(s: &str, max_chars: usize) -> String {
+	if s.chars().count() <= max_chars {
+		return s.to_string();
+	}
+
+	let mut out: String = s.chars().take(max_chars.saturating_sub(1)).collect();
+	out.push('…');
+	out
 }
 
 #[derive(Clone, Copy, Debug)]
