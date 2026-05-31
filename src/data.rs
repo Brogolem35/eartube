@@ -1,12 +1,13 @@
 use std::{
 	fs,
 	path::PathBuf,
-	sync::{LazyLock, RwLock},
+	sync::LazyLock,
 	time::{SystemTime, UNIX_EPOCH},
 };
 
 use dashmap::DashMap;
 use foldhash::fast::FixedState;
+use parking_lot::RwLock;
 use rustypipe::model::TrackItem;
 use serde::{Deserialize, Serialize};
 
@@ -128,7 +129,7 @@ fn load_favorites() -> Vec<TrackItem> {
 }
 
 pub fn save_favorites() {
-	match serde_json::to_string_pretty(&*FAVORITES) {
+	match serde_json::to_string_pretty(&*FAVORITES.read()) {
 		Ok(json) => save_favorites_content(json),
 		Err(e) => panic!("Failed to serialize favorites.json: {e}"),
 	}
@@ -142,12 +143,12 @@ fn save_favorites_content(content: String) {
 }
 
 pub fn is_favorited(id: &str) -> bool {
-	FAVORITES.read().unwrap().iter().any(|t| t.id == id)
+	FAVORITES.read().iter().any(|t| t.id == id)
 }
 
 pub fn toggle_favorite(track: &TrackItem) {
 	{
-		let mut lock = FAVORITES.write().unwrap();
+		let mut lock = FAVORITES.write();
 		let id = track.id.as_str();
 		match lock.iter().position(|t| t.id == id) {
 			Some(i) => {
