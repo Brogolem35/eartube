@@ -96,8 +96,10 @@ impl AppState {
 		let playback_control = self.view_playback_control();
 
 		let fav_scroll = scrollable(row(self.favorites_view.iter().rev().map(|item| {
+			let msg = Message::SelectTrack(item.clone());
 			let thumb = self.thumbnail_manager.get(&item.id);
-			mouse_area(favorite_track_card(item, false, thumb)).into()
+			let card = favorite_track_card(item, false, thumb);
+			mouse_area(card).on_press(msg).into()
 		})))
 		.horizontal();
 
@@ -319,6 +321,12 @@ impl AppState {
 				self.favorites_view = data::get_favorites().to_owned();
 				Task::none()
 			}
+			Message::SelectTrack(track) => {
+				self.playback_tx
+					.send(PlaybackCommand::LoadPlaylist(vec![track]))
+					.unwrap();
+				Task::none()
+			}
 			Message::Exit => iced::exit(),
 		}
 	}
@@ -419,6 +427,7 @@ pub enum Message {
 		img: image::Handle,
 	},
 	ToggleFavorite(TrackItem),
+	SelectTrack(TrackItem),
 	FetchPlaylist(Result<Vec<TrackItem>, String>),
 }
 

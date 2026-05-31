@@ -83,6 +83,11 @@ impl Playback {
 		self.pause = false;
 	}
 
+	pub fn push_track(&mut self, track: TrackItem) {
+		self.list.push(track);
+		self.index;
+	}
+
 	pub fn seek_forward(&mut self) -> anyhow::Result<()> {
 		match &mut self.player {
 			PlayerState::Loaded(p) => p.seek_forward(5.0),
@@ -198,6 +203,7 @@ pub enum PlaybackCommand {
 	SeekBackward,
 	Seek(Duration),
 	SetVolume(f32),
+	PushTrack(TrackItem),
 }
 
 pub enum PlaybackEvent {
@@ -281,6 +287,11 @@ pub async fn playback_command(
 		PlaybackCommand::SetVolume(v) => {
 			pl.set_volume(v);
 			tx.send(PlaybackEvent::PlayerUpdated(pl.player_view()))
+				.unwrap();
+		}
+		PlaybackCommand::PushTrack(t) => {
+			pl.push_track(t);
+			tx.send(PlaybackEvent::PlaylistUpdated(pl.playback_view()))
 				.unwrap();
 		}
 	}
