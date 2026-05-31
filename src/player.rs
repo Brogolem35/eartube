@@ -2,6 +2,7 @@ use std::{sync::LazyLock, time::Duration};
 
 use anyhow::{Context, Ok, Result};
 use rodio::{Decoder, MixerDeviceSink, Source};
+use tokio::task::JoinHandle;
 
 use crate::audio_cache;
 
@@ -14,31 +15,34 @@ pub struct Player {
 }
 
 impl Player {
-	pub async fn new(url: &str, volume: f32) -> Result<Self> {
-		let reader = audio_cache::get_audio(url).await?;
-		let len_hint = reader.len();
+	pub fn new(url: &str, volume: f32) -> JoinHandle<Result<Self>> {
+		let url = url.to_owned();
+		tokio::spawn(async move {
+			let reader = audio_cache::get_audio(&url).await?;
+			let len_hint = reader.len();
 
-		tokio::task::spawn_blocking(move || {
-			let source = Decoder::builder()
-				.with_seekable(true)
-				.with_byte_len(len_hint)
-				.with_coarse_seek(true)
-				.with_data(reader)
-				.build()?;
+			tokio::task::spawn_blocking(move || {
+				let source = Decoder::builder()
+					.with_seekable(true)
+					.with_byte_len(len_hint)
+					.with_coarse_seek(true)
+					.with_data(reader)
+					.build()?;
 
-			let duration = source
-				.total_duration()
-				.context("Decoder: Unknown length of stream.")?;
-			let player = rodio::Player::connect_new(SINK_HANDLE.mixer());
-			player.append(source);
-			player.set_volume(volume);
+				let duration = source
+					.total_duration()
+					.context("Decoder: Unknown length of stream.")?;
+				let player = rodio::Player::connect_new(SINK_HANDLE.mixer());
+				player.append(source);
+				player.set_volume(volume);
 
-			Ok(Self {
-				inner: player,
-				duration,
+				Ok(Self {
+					inner: player,
+					duration,
+				})
 			})
+			.await?
 		})
-		.await?
 	}
 
 	#[allow(unused)]
@@ -91,5 +95,43 @@ impl Player {
 
 	pub fn get_pos(&self) -> Duration {
 		self.inner.get_pos()
+	}
+}
+
+#[derive(Default)]
+pub enum PlayerState {
+	#[default]
+	None,
+	Loading(JoinHandle<Result<Player>>),
+	Loaded(Player),
+}
+
+impl PlayerState {
+	pub fn get_player(&self) -> Option<&Player> {
+		match self {
+			PlayerState::None => None,
+			PlayerState::Loading(_) => None,
+			PlayerState::Loaded(p) => Some(p),
+		}
+	}
+
+	pub async fn try_finish(&mut self) -> Option<Result<Player>> {
+		match self {
+			PlayerState::Loading(h) if h.is_finished() => {
+				let res = h.await.ok();
+				*self = PlayerState::None;
+				res
+			}
+			_ => None,
+		}
+	}
+}
+
+impl Drop for PlayerState {
+	fn drop(&mut self) {
+		match self {
+			PlayerState::Loading(h) => h.abort(),
+			_ => {}
+		}
 	}
 }

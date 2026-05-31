@@ -6,11 +6,14 @@ use tokio::{
 	sync::mpsc::{UnboundedReceiver, UnboundedSender},
 };
 
-use crate::{data::update_track_view, player::Player};
+use crate::{
+	data::update_track_view,
+	player::{Player, PlayerState},
+};
 
 #[derive(Default)]
 pub struct Playback {
-	player: Option<Player>,
+	player: PlayerState,
 	list: Vec<TrackItem>,
 	index: Option<usize>,
 	pause: bool,
@@ -20,7 +23,7 @@ pub struct Playback {
 impl Playback {
 	pub fn new() -> Self {
 		Self {
-			player: None,
+			player: PlayerState::None,
 			list: Vec::new(),
 			index: None,
 			pause: true,
@@ -29,14 +32,14 @@ impl Playback {
 	}
 
 	pub async fn play(&mut self) -> anyhow::Result<()> {
-		if let Some(ref player) = self.player
+		if let PlayerState::Loaded(ref player) = self.player
 			&& !player.finished()
 		{
 			return Ok(());
 		}
 		if self.is_empty() {
 			self.index.take();
-			self.player.take();
+			self.player = PlayerState::None;
 			return Ok(());
 		}
 
@@ -50,7 +53,7 @@ impl Playback {
 			.expect("Playlist index is greater than list size.")
 			.clone();
 
-		self.player = Some(Player::new(&track_item.id, self.volume).await?);
+		self.player = PlayerState::Loading(Player::new(&track_item.id, self.volume));
 		self.index = Some(index);
 		update_track_view(track_item);
 
@@ -59,8 +62,9 @@ impl Playback {
 
 	pub fn finished(&self) -> bool {
 		match &self.player {
-			Some(p) => p.finished(),
-			None => true,
+			PlayerState::Loaded(p) => p.finished(),
+			PlayerState::Loading(_) => false,
+			PlayerState::None => true,
 		}
 	}
 
@@ -75,28 +79,28 @@ impl Playback {
 	pub fn set_list(&mut self, list: Vec<TrackItem>) {
 		self.list = list;
 		self.index.take();
-		self.player.take();
+		self.player = PlayerState::None;
 		self.pause = false;
 	}
 
 	pub fn seek_forward(&mut self) -> anyhow::Result<()> {
 		match &mut self.player {
-			Some(p) => p.seek_forward(5.0),
-			None => Ok(()),
+			PlayerState::Loaded(p) => p.seek_forward(5.0),
+			_ => Ok(()),
 		}
 	}
 
 	pub fn seek_backward(&mut self) -> anyhow::Result<()> {
 		match &mut self.player {
-			Some(p) => p.seek_backward(5.0),
-			None => Ok(()),
+			PlayerState::Loaded(p) => p.seek_backward(5.0),
+			_ => Ok(()),
 		}
 	}
 
 	pub fn seek(&mut self, value: Duration) -> anyhow::Result<()> {
 		match &mut self.player {
-			Some(p) => p.seek(value),
-			None => Ok(()),
+			PlayerState::Loaded(p) => p.seek(value),
+			_ => Ok(()),
 		}
 	}
 
@@ -104,12 +108,12 @@ impl Playback {
 		self.pause = !self.pause;
 		match self.pause {
 			true => {
-				if let Some(ref p) = self.player {
+				if let PlayerState::Loaded(ref p) = self.player {
 					p.pause();
 				}
 			}
 			false => {
-				if let Some(ref p) = self.player {
+				if let PlayerState::Loaded(ref p) = self.player {
 					p.unpause();
 				}
 			}
@@ -127,7 +131,7 @@ impl Playback {
 			}
 			Some(x) => Some(x + 1),
 		};
-		self.player.take();
+		self.player = PlayerState::None;
 	}
 
 	pub fn skip_prev(&mut self) {
@@ -135,17 +139,17 @@ impl Playback {
 			Some(i) => i.checked_sub(1),
 			None => None,
 		};
-		self.player.take();
+		self.player = PlayerState::None;
 	}
 
 	pub fn skip_to(&mut self, index: usize) {
 		self.index = Some(index);
-		self.player.take();
+		self.player = PlayerState::None;
 	}
 
 	pub fn set_volume(&mut self, vol: f32) {
 		self.volume = vol;
-		if let Some(ref p) = self.player {
+		if let PlayerState::Loaded(ref p) = self.player {
 			p.set_volume(self.volume);
 		}
 	}
@@ -159,7 +163,7 @@ impl Playback {
 	}
 
 	pub fn player_view(&self) -> PlayerView {
-		let pref = self.player.as_ref();
+		let pref = self.player.get_player();
 		PlayerView {
 			pause: self.pause,
 			volume: self.volume,
@@ -176,7 +180,7 @@ impl Playback {
 impl Debug for Playback {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		f.debug_struct("Playlist")
-			.field("player", &self.player.is_some())
+			.field("player", &self.player.get_player().is_some())
 			.field("list", &self.list)
 			.field("index", &self.index)
 			.field("pause", &self.pause)
@@ -206,7 +210,6 @@ pub async fn playback_loop(
 	tx: UnboundedSender<PlaybackEvent>,
 ) {
 	let mut pl = Playback::new();
-
 	loop {
 		select! {
 			Some(cmd) = rx.recv() => {
@@ -214,6 +217,16 @@ pub async fn playback_loop(
 			}
 			_ = tokio::time::sleep(Duration::from_millis(100)) => {
 				playback_idle_tick(&mut pl, &tx).await;
+			}
+			Some(res) = pl.player.try_finish() => {
+				match res {
+					Ok(p) => {
+						pl.player = PlayerState::Loaded(p);
+					},
+					Err(e) => {
+						eprintln!("Error occured during playback: {e}");
+					},
+				    }
 			}
 		}
 	}
@@ -275,7 +288,7 @@ pub async fn playback_command(
 
 pub async fn playback_idle_tick(pl: &mut Playback, tx: &UnboundedSender<PlaybackEvent>) {
 	if pl.finished() && !pl.pause {
-		if pl.player.is_some() {
+		if pl.player.get_player().is_some() {
 			pl.skip_next();
 		}
 		// A second check due to mutation done on skip_next
