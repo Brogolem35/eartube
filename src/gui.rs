@@ -119,13 +119,15 @@ impl AppState {
 			let card = favorite_track_card(item, thumb);
 			mouse_area(card).on_press(msg).into()
 		})))
+		.id("fav_scroll")
 		.horizontal();
 
 		let favorites = column![text("Favorites"), fav_scroll,];
 
 		let menu_scroll = scrollable(favorites)
 			.width(Length::Fill)
-			.height(Length::Fill);
+			.height(Length::Fill)
+			.id("main_menu_scroll");
 
 		column![search, menu_scroll, playback_control,]
 			.width(Length::Fill)
@@ -155,6 +157,7 @@ impl AppState {
 		))
 		.width(Length::Fill)
 		.height(Length::Fill)
+		.id("playlist_elements")
 		.spacing(0);
 
 		column![playlist_elements, playback_control,]
