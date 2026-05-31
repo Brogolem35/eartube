@@ -24,6 +24,20 @@ use crate::{
 	thumbnail::{ThumbnailCache, ThumbnailSource},
 };
 
+const SMALL_THUMBNAIL_SIZE: u32 = 80;
+const TRANSPARENT_COLOR: Color = Color {
+	r: 0.0,
+	g: 0.0,
+	b: 0.0,
+	a: 0.0,
+};
+const SEMI_TRANSPARENT_COLOR: Color = Color {
+	r: 0.3,
+	g: 0.3,
+	b: 0.3,
+	a: 0.3,
+};
+
 struct AppState {
 	search_input: String,
 
@@ -34,6 +48,7 @@ struct AppState {
 	favorites_view: Vec<TrackItem>,
 
 	view: View,
+	playlist_view: bool,
 
 	thumbnail_manager: ThumbnailCache,
 
@@ -45,8 +60,6 @@ struct AppState {
 }
 
 impl AppState {
-	const SMALL_THUMBNAIL_SIZE: u32 = 80;
-
 	fn new() -> Self {
 		let (player_tx, player_rx) = mpsc::unbounded_channel();
 		let (event_tx, event_rx) = mpsc::unbounded_channel();
@@ -75,6 +88,7 @@ impl AppState {
 			favorites_view: data::get_favorites().clone(),
 
 			view: View::MainMenu,
+			playlist_view: false,
 
 			thumbnail_manager: ThumbnailCache::default(),
 
@@ -87,9 +101,11 @@ impl AppState {
 	}
 
 	fn view(&self) -> Element<'_, Message> {
-		match self.view {
-			View::MainMenu => self.view_main_menu(),
-			View::Playlist => self.view_playlist(),
+		match self.playlist_view {
+			false => match self.view {
+				View::MainMenu => self.view_main_menu(),
+			},
+			true => self.view_playlist(),
 		}
 	}
 
@@ -100,7 +116,7 @@ impl AppState {
 		let fav_scroll = scrollable(row(self.favorites_view.iter().rev().map(|item| {
 			let msg = Message::SelectTrack(item.clone());
 			let thumb = self.thumbnail_manager.get(&item.id);
-			let card = favorite_track_card(item, false, thumb);
+			let card = favorite_track_card(item, thumb);
 			mouse_area(card).on_press(msg).into()
 		})))
 		.horizontal();
@@ -194,14 +210,30 @@ impl AppState {
 	}
 
 	fn view_playback_informer(&self) -> Element<'_, Message> {
-		let Some(t) = self.playback_view.current_track() else {
-			return space()
-				.height(Self::SMALL_THUMBNAIL_SIZE)
+		let field = match self.playback_view.current_track() {
+			Some(t) => {
+				let thumb = self.thumbnail_manager.get(&t.id);
+				controls_track_card(t, thumb)
+			}
+			None => space()
+				.height(SMALL_THUMBNAIL_SIZE)
 				.width(Length::Fill)
-				.into();
+				.into(),
 		};
-		let thumb = self.thumbnail_manager.get(&t.id);
-		controls_track_card(t, thumb)
+		button(field)
+			.padding(0)
+			.style(|_, s| match s {
+				button::Status::Hovered => button::Style {
+					background: Some(Background::Color(SEMI_TRANSPARENT_COLOR)),
+					..Default::default()
+				},
+				_ => button::Style {
+					background: Some(Background::Color(TRANSPARENT_COLOR)),
+					..Default::default()
+				},
+			})
+			.on_press(Message::TogglePlaylistView)
+			.into()
 	}
 
 	fn view_playback_progress(&self) -> Row<'_, Message> {
@@ -294,6 +326,10 @@ impl AppState {
 			}
 			Message::TogglePause => {
 				self.playback_tx.send(PlaybackCommand::TogglePause).unwrap();
+				Task::none()
+			}
+			Message::TogglePlaylistView => {
+				self.playlist_view = !self.playlist_view;
 				Task::none()
 			}
 			Message::SkipNext => {
@@ -427,6 +463,7 @@ pub enum Message {
 	/// Has a seperate tick than the rest due to being able to process signals only once every second.
 	MediaControlTick,
 	TogglePause,
+	TogglePlaylistView,
 	SeekForward,
 	SeekBackward,
 	SkipNext,
@@ -493,8 +530,8 @@ fn track_card(track: &TrackItem, current: bool, thumb: image::Handle) -> Element
 
 	let thumbnail = sensor(image(thumb)
 		.content_fit(ContentFit::Cover)
-		.height(AppState::SMALL_THUMBNAIL_SIZE)
-		.width(AppState::SMALL_THUMBNAIL_SIZE))
+		.height(SMALL_THUMBNAIL_SIZE)
+		.width(SMALL_THUMBNAIL_SIZE))
 	.on_show(|_| Message::ImagePopIn(ThumbnailSource::new(track)))
 	.key_ref(&track.id);
 
@@ -531,19 +568,8 @@ fn track_card(track: &TrackItem, current: bool, thumb: image::Handle) -> Element
 		.into()
 }
 
-fn favorite_track_card(
-	track: &TrackItem,
-	current: bool,
-	thumb: image::Handle,
-) -> Element<'_, Message> {
-	let (bg_color, border_color, name_color, artist_color) = if current {
-		(
-			Color::from_rgb8(45, 45, 60),
-			Color::from_rgb8(120, 120, 255),
-			Color::from_rgb8(255, 255, 255),
-			Color::from_rgb8(210, 210, 255),
-		)
-	} else {
+fn favorite_track_card(track: &TrackItem, thumb: image::Handle) -> Element<'_, Message> {
+	let (bg_color, border_color, name_color, artist_color) = {
 		(
 			Color::from_rgb8(30, 30, 30),
 			Color::from_rgb8(60, 60, 60),
@@ -586,7 +612,7 @@ fn favorite_track_card(
 			background: Some(Background::Color(bg_color)),
 			border: Border {
 				radius: Radius::new(12.0),
-				width: if current { 2.0 } else { 1.0 },
+				width: 1.0,
 				color: border_color,
 			},
 			..Default::default()
@@ -599,8 +625,8 @@ fn controls_track_card(track: &TrackItem, thumb: image::Handle) -> Element<'_, M
 
 	let thumbnail = sensor(image(thumb)
 		.content_fit(ContentFit::Cover)
-		.height(AppState::SMALL_THUMBNAIL_SIZE)
-		.width(AppState::SMALL_THUMBNAIL_SIZE))
+		.height(SMALL_THUMBNAIL_SIZE)
+		.width(SMALL_THUMBNAIL_SIZE))
 	.on_show(|_| Message::ImagePopIn(ThumbnailSource::new(track)))
 	.key_ref(&track.id);
 
@@ -643,5 +669,4 @@ fn ellipsize(s: &str, max_chars: usize) -> String {
 #[derive(Clone, Copy, Debug)]
 enum View {
 	MainMenu,
-	Playlist,
 }
