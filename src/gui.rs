@@ -134,7 +134,6 @@ impl AppState {
 	}
 
 	fn view_playlist(&self) -> Element<'_, Message> {
-		let search = self.view_search_input();
 		let playback_control = self.view_playback_control();
 
 		let playlist_elements = scrollable(Column::from_iter(
@@ -158,7 +157,7 @@ impl AppState {
 		.height(Length::Fill)
 		.spacing(0);
 
-		column![search, playlist_elements, playback_control,]
+		column![playlist_elements, playback_control,]
 			.height(Length::Fill)
 			.width(Length::Fill)
 			.into()
