@@ -17,7 +17,7 @@ use souvlaki::{MediaControlEvent, MediaControls};
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 
 use crate::{
-	data::{is_favorited, toggle_favorite},
+	data::{self, toggle_favorite},
 	icons,
 	playback::{MediaMeta, PlaybackCommand, PlaybackEvent, PlaybackView, playback_loop},
 	rp_testing,
@@ -26,8 +26,13 @@ use crate::{
 
 struct AppState {
 	search_input: String,
+
 	playback_view: PlaybackView,
 	playback_hold_pos: Option<Duration>,
+
+	favorites_view: Vec<TrackItem>,
+
+	view: View,
 
 	thumbnail_manager: ThumbnailCache,
 
@@ -64,6 +69,10 @@ impl AppState {
 			playback_view: PlaybackView::default(),
 			playback_hold_pos: None,
 
+			favorites_view: data::get_favorites().clone(),
+
+			view: View::MainMenu,
+
 			thumbnail_manager: ThumbnailCache::default(),
 
 			playback_tx: player_tx,
@@ -75,11 +84,36 @@ impl AppState {
 	}
 
 	fn view(&self) -> Element<'_, Message> {
-		let search_input = text_input("Search", &self.search_input)
-			.on_input(Message::SearchEdit)
-			.on_submit(Message::Play);
-		let play_button = button("Play").on_press(Message::Play);
+		match self.view {
+			View::MainMenu => self.view_main_menu(),
+			View::Playlist => self.view_playlist(),
+		}
+	}
 
+	fn view_main_menu(&self) -> Element<'_, Message> {
+		let search = self.view_search_input();
+		let playback_control = self.view_playback_control();
+
+		let fav_scroll = scrollable(row(self.favorites_view.iter().map(|item| {
+			let thumb = self.thumbnail_manager.get(&item.id);
+			mouse_area(track_card(item, false, thumb)).into()
+		})))
+		.horizontal();
+
+		let favorites = column![text("Favorites"), fav_scroll,];
+
+		let menu_scroll = scrollable(favorites)
+			.width(Length::Fill)
+			.height(Length::Fill);
+
+		column![search, menu_scroll, playback_control,]
+			.width(Length::Fill)
+			.height(Length::Fill)
+			.into()
+	}
+
+	fn view_playlist(&self) -> Element<'_, Message> {
+		let search = self.view_search_input();
 		let playback_control = self.view_playback_control();
 
 		let playlist_elements = scrollable(Column::from_iter(
@@ -103,15 +137,98 @@ impl AppState {
 		.height(Length::Fill)
 		.spacing(0);
 
-		column![
-			search_input,
-			play_button,
-			playlist_elements,
-			playback_control,
-		]
-		.height(Length::Fill)
-		.width(Length::Fill)
-		.into()
+		column![search, playlist_elements, playback_control,]
+			.height(Length::Fill)
+			.width(Length::Fill)
+			.into()
+	}
+
+	fn view_playback_control(&self) -> Column<'_, Message> {
+		let pause_button_icon = pause_button_icon(self.playback_view.player.pause);
+		let button_height = Length::Fixed(30.0);
+		let button_width = Length::Fixed(40.0);
+
+		let skipp_button = button(svg(svg::Handle::from_memory(icons::PREV)))
+			.on_press(Message::SkipPrev)
+			.height(button_height)
+			.width(button_width);
+		let pause_button = button(svg(pause_button_icon))
+			.on_press(Message::TogglePause)
+			.height(button_height)
+			.width(button_width);
+		let skipn_button = button(svg(svg::Handle::from_memory(icons::NEXT)))
+			.on_press(Message::SkipNext)
+			.height(button_height)
+			.width(button_width);
+
+		let playback_progress = self.view_playback_progress();
+		let control_buttons = row![skipp_button, pause_button, skipn_button];
+
+		let volume_slider = self.view_volume_slider();
+
+		let current_track = self.playback_view.current_track();
+		let favorited = current_track
+			.map(|t| self.is_favorited(&t.id))
+			.unwrap_or(false);
+		let favorite_button = button(svg(favorite_button_icon(favorited)))
+			.height(button_height)
+			.width(button_width)
+			.on_press_maybe(current_track.map(|t| Message::ToggleFavorite(t.clone())));
+		let left_row =
+			row![space().width(Length::Fill), favorite_button].width(Length::Fill);
+
+		let controls_row = row![left_row, control_buttons, volume_slider]
+			.align_y(Vertical::Center)
+			.spacing(50);
+
+		column![playback_progress, controls_row,]
+			.align_x(Horizontal::Center)
+			.padding(10)
+	}
+
+	fn view_playback_progress(&self) -> Row<'_, Message> {
+		let pl = &self.playback_view.player;
+		let len = pl.length;
+		let pos = self.playback_hold_pos.unwrap_or(pl.pos);
+
+		let playback_slider = slider(0.0..=len.as_secs_f32(), pos.as_secs_f32(), |p| {
+			Message::PlaybackSliderHold(Duration::from_secs_f32(p))
+		})
+		.on_release(Message::PlaybackSliderRelease);
+		let playback_pos = text(duration_fmt(pos));
+		let playback_len = text(duration_fmt(len));
+
+		row![playback_pos, playback_slider, playback_len]
+			.spacing(10)
+			.padding(5)
+	}
+
+	fn view_volume_slider(&self) -> Row<'_, Message> {
+		let slider = slider(
+			0.0..=1.0,
+			self.playback_view.player.volume,
+			Message::VolumeChanged,
+		)
+		.step(0.005)
+		.width(100);
+		let vol_percent = (self.playback_view.player.volume * 100.0) as u32;
+		let text = text(format!("{:>3}%", vol_percent))
+			.align_x(Horizontal::Right)
+			.width(40);
+
+		row![slider, text]
+			.align_y(Vertical::Center)
+			.width(Length::Fill)
+			.spacing(5)
+	}
+
+	fn view_search_input(&self) -> Element<'_, Message> {
+		let search_input = text_input("Search", &self.search_input)
+			.on_input(Message::SearchEdit)
+			.on_submit(Message::Play);
+		let play_button = button("Play").on_press(Message::Play);
+
+		column![search_input, play_button].into()
 	}
 
 	fn update(&mut self, message: Message) -> Task<Message> {
@@ -198,6 +315,7 @@ impl AppState {
 			}
 			Message::ToggleFavorite(track) => {
 				toggle_favorite(&track);
+				self.favorites_view = data::get_favorites().to_owned();
 				Task::none()
 			}
 			Message::Exit => iced::exit(),
@@ -272,81 +390,8 @@ impl AppState {
 		Task::none()
 	}
 
-	fn view_playback_control(&self) -> Column<'_, Message> {
-		let pause_button_icon = pause_button_icon(self.playback_view.player.pause);
-		let button_height = Length::Fixed(30.0);
-		let button_width = Length::Fixed(40.0);
-
-		let skipp_button = button(svg(svg::Handle::from_memory(icons::PREV)))
-			.on_press(Message::SkipPrev)
-			.height(button_height)
-			.width(button_width);
-		let pause_button = button(svg(pause_button_icon))
-			.on_press(Message::TogglePause)
-			.height(button_height)
-			.width(button_width);
-		let skipn_button = button(svg(svg::Handle::from_memory(icons::NEXT)))
-			.on_press(Message::SkipNext)
-			.height(button_height)
-			.width(button_width);
-
-		let playback_progress = self.view_playback_progress();
-		let control_buttons = row![skipp_button, pause_button, skipn_button];
-
-		let volume_slider = self.view_volume_slider();
-
-		let current_track = self.playback_view.current_track();
-		let favorited = current_track.map(|t| is_favorited(&t.id)).unwrap_or(false);
-		let favorite_button = button(svg(favorite_button_icon(favorited)))
-			.height(button_height)
-			.width(button_width)
-			.on_press_maybe(current_track.map(|t| Message::ToggleFavorite(t.clone())));
-		let left_row =
-			row![space().width(Length::Fill), favorite_button].width(Length::Fill);
-
-		let controls_row = row![left_row, control_buttons, volume_slider]
-			.align_y(Vertical::Center)
-			.spacing(50);
-
-		column![playback_progress, controls_row,]
-			.align_x(Horizontal::Center)
-			.padding(10)
-	}
-
-	fn view_playback_progress(&self) -> Row<'_, Message> {
-		let pl = &self.playback_view.player;
-		let len = pl.length;
-		let pos = self.playback_hold_pos.unwrap_or(pl.pos);
-
-		let playback_slider = slider(0.0..=len.as_secs_f32(), pos.as_secs_f32(), |p| {
-			Message::PlaybackSliderHold(Duration::from_secs_f32(p))
-		})
-		.on_release(Message::PlaybackSliderRelease);
-		let playback_pos = text(duration_fmt(pos));
-		let playback_len = text(duration_fmt(len));
-
-		row![playback_pos, playback_slider, playback_len]
-			.spacing(10)
-			.padding(5)
-	}
-
-	fn view_volume_slider(&self) -> Row<'_, Message> {
-		let slider = slider(
-			0.0..=1.0,
-			self.playback_view.player.volume,
-			Message::VolumeChanged,
-		)
-		.step(0.005)
-		.width(100);
-		let vol_percent = (self.playback_view.player.volume * 100.0) as u32;
-		let text = text(format!("{:>3}%", vol_percent))
-			.align_x(Horizontal::Right)
-			.width(40);
-
-		row![slider, text]
-			.align_y(Vertical::Center)
-			.width(Length::Fill)
-			.spacing(5)
+	fn is_favorited(&self, id: &str) -> bool {
+		self.favorites_view.iter().any(|t| t.id == id)
 	}
 }
 
@@ -459,4 +504,10 @@ fn track_card(track: &TrackItem, current: bool, thumb: image::Handle) -> Element
 			..Default::default()
 		})
 		.into()
+}
+
+#[derive(Clone, Copy, Debug)]
+enum View {
+	MainMenu,
+	Playlist,
 }

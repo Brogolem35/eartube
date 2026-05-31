@@ -7,7 +7,7 @@ use std::{
 
 use dashmap::DashMap;
 use foldhash::fast::FixedState;
-use parking_lot::RwLock;
+use parking_lot::{RwLock, RwLockReadGuard};
 use rustypipe::model::TrackItem;
 use serde::{Deserialize, Serialize};
 
@@ -162,6 +162,10 @@ pub fn toggle_favorite(track: &TrackItem) {
 	}
 
 	save_favorites();
+}
+
+pub fn get_favorites() -> RwLockReadGuard<'static, Vec<TrackItem>> {
+	FAVORITES.read()
 }
 
 pub static PLAYLISTS: RwLock<Vec<Playlist>> = RwLock::new(Vec::new());
