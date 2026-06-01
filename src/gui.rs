@@ -12,7 +12,7 @@ use iced::{
 	},
 	window,
 };
-use iced_aw::ContextMenu;
+use iced_aw::{ContextMenu, context_menu, style::colors};
 use rustypipe::model::TrackItem;
 use souvlaki::{MediaControlEvent, MediaControls};
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
@@ -223,16 +223,7 @@ impl AppState {
 		};
 		button(field)
 			.padding(0)
-			.style(|_, s| match s {
-				button::Status::Hovered => button::Style {
-					background: Some(Background::Color(SEMI_TRANSPARENT_COLOR)),
-					..Default::default()
-				},
-				_ => button::Style {
-					background: Some(Background::Color(TRANSPARENT_COLOR)),
-					..Default::default()
-				},
-			})
+			.style(transparent_button_style)
 			.on_press(Message::TogglePlaylistView)
 			.into()
 	}
@@ -643,20 +634,22 @@ fn favorite_track_card(track: &TrackItem, thumb: image::Handle) -> Element<'_, M
 		column![
 			button("Play")
 				.on_press(click_msg.clone())
-				.width(Length::Fill),
-			button("Add to queue").on_press(queue_msg.clone()),
+				.width(Length::Fill)
+				.style(context_button_style),
+			button("Add to queue")
+				.on_press(queue_msg.clone())
+				.style(context_button_style),
 			button("Start radio")
 				.on_press(radio_msg.clone())
-				.width(Length::Fill),
+				.width(Length::Fill)
+				.style(context_button_style),
 		]
 		.width(Length::Shrink)
 		.into()
 	})
-	.style(
-		|t: &Theme, _: iced_aw::style::Status| iced_aw::context_menu::Style {
-			background: iced::Background::Color(t.palette().primary),
-		},
-	)
+	.style(|t: &Theme, _| context_menu::Style {
+		background: Background::Color(t.palette().background),
+	})
 	.into()
 }
 
@@ -694,6 +687,32 @@ fn controls_track_card(track: &TrackItem, thumb: image::Handle) -> Element<'_, M
 	container(row![thumbnail, column].spacing(6))
 		.width(Length::Fill)
 		.into()
+}
+
+fn transparent_button_style(t: &Theme, s: button::Status) -> button::Style {
+	match s {
+		button::Status::Hovered => button::Style {
+			background: Some(Background::Color(SEMI_TRANSPARENT_COLOR)),
+			text_color: t.palette().text,
+			..Default::default()
+		},
+		_ => button::Style {
+			background: Some(Background::Color(TRANSPARENT_COLOR)),
+			text_color: t.palette().text,
+			..Default::default()
+		},
+	}
+}
+
+fn context_button_style(t: &Theme, s: button::Status) -> button::Style {
+	button::Style {
+		border: Border {
+			color: colors::BLACK,
+			width: 0.2,
+			radius: 0.0.into(),
+		},
+		..transparent_button_style(t, s)
+	}
 }
 
 fn ellipsize(s: &str, max_chars: usize) -> String {
