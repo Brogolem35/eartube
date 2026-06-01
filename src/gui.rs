@@ -384,6 +384,12 @@ impl AppState {
 					.unwrap();
 				Task::none()
 			}
+			Message::AddToQueue(track) => {
+				self.playback_tx
+					.send(PlaybackCommand::PushTrack(track))
+					.unwrap();
+				Task::none()
+			}
 			Message::Exit => iced::exit(),
 		}
 	}
@@ -486,6 +492,7 @@ pub enum Message {
 	},
 	ToggleFavorite(TrackItem),
 	SelectTrack(TrackItem),
+	AddToQueue(TrackItem),
 	FetchPlaylist(Result<Vec<TrackItem>, String>),
 }
 
@@ -584,6 +591,7 @@ fn favorite_track_card(track: &TrackItem, thumb: image::Handle) -> Element<'_, M
 		)
 	};
 	let click_msg = Message::SelectTrack(track.clone());
+	let queue_msg = Message::AddToQueue(track.clone());
 
 	let thumbnail = sensor(image(thumb)
 		.content_fit(ContentFit::Cover)
@@ -631,8 +639,8 @@ fn favorite_track_card(track: &TrackItem, thumb: image::Handle) -> Element<'_, M
 			button("Play")
 				.on_press(click_msg.clone())
 				.width(Length::Fill),
-			button("Add to queue"),
-			button("Start radio")
+			button("Add to queue").on_press(queue_msg.clone()),
+			button("Start radio").width(Length::Fill),
 		]
 		.width(Length::Shrink)
 		.into()
