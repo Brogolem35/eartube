@@ -1,13 +1,8 @@
 use std::time::Duration;
 
 use iced::{
-	Background, Border, Color, ContentFit, Element,
-	Length::{self, Fill},
-	Subscription, Task, Theme,
-	alignment::{
-		Horizontal::{self, Left},
-		Vertical,
-	},
+	Background, Border, Color, ContentFit, Element, Length, Subscription, Task, Theme,
+	alignment::{Horizontal, Vertical},
 	border::Radius,
 	event,
 	keyboard::{self, Key, key::Named},
@@ -24,9 +19,9 @@ use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 
 use crate::{
 	data::{self, toggle_favorite},
-	icons,
+	icons, new_radio,
 	playback::{MediaMeta, PlaybackCommand, PlaybackEvent, PlaybackView, playback_loop},
-	rp_testing,
+	search_and_play,
 	thumbnail::{ThumbnailCache, ThumbnailSource},
 };
 
@@ -292,7 +287,11 @@ impl AppState {
 			Message::Play => {
 				let arg = self.search_input.clone();
 				Task::perform(
-					async move { rp_testing(&arg).await.map_err(|e| e.to_string()) },
+					async move {
+						search_and_play(&arg)
+							.await
+							.map_err(|e| e.to_string())
+					},
 					Message::FetchPlaylist,
 				)
 			}
@@ -390,6 +389,10 @@ impl AppState {
 					.unwrap();
 				Task::none()
 			}
+			Message::StartRadio(track) => Task::perform(
+				async move { new_radio(track).await.map_err(|e| e.to_string()) },
+				Message::FetchPlaylist,
+			),
 			Message::Exit => iced::exit(),
 		}
 	}
@@ -493,6 +496,7 @@ pub enum Message {
 	ToggleFavorite(TrackItem),
 	SelectTrack(TrackItem),
 	AddToQueue(TrackItem),
+	StartRadio(TrackItem),
 	FetchPlaylist(Result<Vec<TrackItem>, String>),
 }
 
@@ -592,6 +596,7 @@ fn favorite_track_card(track: &TrackItem, thumb: image::Handle) -> Element<'_, M
 	};
 	let click_msg = Message::SelectTrack(track.clone());
 	let queue_msg = Message::AddToQueue(track.clone());
+	let radio_msg = Message::StartRadio(track.clone());
 
 	let thumbnail = sensor(image(thumb)
 		.content_fit(ContentFit::Cover)
@@ -640,7 +645,9 @@ fn favorite_track_card(track: &TrackItem, thumb: image::Handle) -> Element<'_, M
 				.on_press(click_msg.clone())
 				.width(Length::Fill),
 			button("Add to queue").on_press(queue_msg.clone()),
-			button("Start radio").width(Length::Fill),
+			button("Start radio")
+				.on_press(radio_msg.clone())
+				.width(Length::Fill),
 		]
 		.width(Length::Shrink)
 		.into()
