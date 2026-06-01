@@ -1,8 +1,13 @@
 use std::time::Duration;
 
 use iced::{
-	Background, Border, Color, ContentFit, Element, Length, Subscription, Task, Theme,
-	alignment::{Horizontal, Vertical},
+	Background, Border, Color, ContentFit, Element,
+	Length::{self, Fill},
+	Subscription, Task, Theme,
+	alignment::{
+		Horizontal::{self, Left},
+		Vertical,
+	},
 	border::Radius,
 	event,
 	keyboard::{self, Key, key::Named},
@@ -12,6 +17,7 @@ use iced::{
 	},
 	window,
 };
+use iced_aw::ContextMenu;
 use rustypipe::model::TrackItem;
 use souvlaki::{MediaControlEvent, MediaControls};
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
@@ -114,10 +120,8 @@ impl AppState {
 		let playback_control = self.view_playback_control();
 
 		let fav_scroll = scrollable(row(self.favorites_view.iter().rev().map(|item| {
-			let msg = Message::SelectTrack(item.clone());
 			let thumb = self.thumbnail_manager.get(&item.id);
-			let card = favorite_track_card(item, thumb);
-			mouse_area(card).on_press(msg).into()
+			favorite_track_card(item, thumb)
 		})))
 		.id("fav_scroll")
 		.horizontal();
@@ -579,6 +583,7 @@ fn favorite_track_card(track: &TrackItem, thumb: image::Handle) -> Element<'_, M
 			Color::from_rgb8(180, 180, 180),
 		)
 	};
+	let click_msg = Message::SelectTrack(track.clone());
 
 	let thumbnail = sensor(image(thumb)
 		.content_fit(ContentFit::Cover)
@@ -608,7 +613,7 @@ fn favorite_track_card(track: &TrackItem, thumb: image::Handle) -> Element<'_, M
 
 	let column = column![thumbnail, name, artists].spacing(6).padding(10);
 
-	container(column)
+	let card = container(column)
 		.width(Length::Fill)
 		.style(move |_: &Theme| container::Style {
 			background: Some(Background::Color(bg_color)),
@@ -618,8 +623,26 @@ fn favorite_track_card(track: &TrackItem, thumb: image::Handle) -> Element<'_, M
 				color: border_color,
 			},
 			..Default::default()
-		})
+		});
+
+	let click = mouse_area(card).on_press(click_msg.clone());
+	ContextMenu::new(click, move || {
+		column![
+			button("Play")
+				.on_press(click_msg.clone())
+				.width(Length::Fill),
+			button("Add to queue"),
+			button("Start radio")
+		]
+		.width(Length::Shrink)
 		.into()
+	})
+	.style(
+		|t: &Theme, _: iced_aw::style::Status| iced_aw::context_menu::Style {
+			background: iced::Background::Color(t.palette().primary),
+		},
+	)
+	.into()
 }
 
 fn controls_track_card(track: &TrackItem, thumb: image::Handle) -> Element<'_, Message> {
