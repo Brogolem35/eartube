@@ -572,8 +572,10 @@ fn track_card(
 
 	let column = column![name, artists].spacing(6).padding(10);
 
-	let remove_button = button("Remove")
-		.height(Length::Fill)
+	let remove_button = button(svg(svg::Handle::from_memory(icons::CROSS)))
+		.height(SMALL_THUMBNAIL_SIZE)
+		.width(SMALL_THUMBNAIL_SIZE)
+		.style(transparent_button_style)
 		.on_press(Message::RemoveFromQueue(index));
 
 	container(

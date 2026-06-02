@@ -4,3 +4,4 @@ pub static PREV: &[u8] = include_bytes!("../icons/prev.svg");
 pub static NEXT: &[u8] = include_bytes!("../icons/next.svg");
 pub static FAVORITE: &[u8] = include_bytes!("../icons/favorite.svg");
 pub static FAVORITED: &[u8] = include_bytes!("../icons/favorited.svg");
+pub static CROSS: &[u8] = include_bytes!("../icons/cross.svg");
