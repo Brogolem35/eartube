@@ -27,18 +27,7 @@ use crate::{
 };
 
 const SMALL_THUMBNAIL_SIZE: u32 = 80;
-const TRANSPARENT_COLOR: Color = Color {
-	r: 0.0,
-	g: 0.0,
-	b: 0.0,
-	a: 0.0,
-};
-const SEMI_TRANSPARENT_COLOR: Color = Color {
-	r: 0.3,
-	g: 0.3,
-	b: 0.3,
-	a: 0.3,
-};
+const SEMI_TRANSPARENT_COLOR: Color = Color::from_rgba(0.3, 0.3, 0.3, 0.3);
 
 struct AppState {
 	search_input: String,
@@ -706,7 +695,7 @@ fn transparent_button_style(t: &Theme, s: button::Status) -> button::Style {
 			..Default::default()
 		},
 		_ => button::Style {
-			background: Some(Background::Color(TRANSPARENT_COLOR)),
+			background: Some(Background::Color(Color::TRANSPARENT)),
 			text_color: t.palette().text,
 			..Default::default()
 		},
