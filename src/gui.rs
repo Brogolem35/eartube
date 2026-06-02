@@ -66,8 +66,6 @@ impl AppState {
 		let (player_tx, player_rx) = mpsc::unbounded_channel();
 		let (event_tx, event_rx) = mpsc::unbounded_channel();
 
-		// TODO: Buggy as hell. Not sure if my code, library, or the DBus API is broken.
-		// Probably the last one as the Free Desktop kinda likes making shit standards.
 		// TODO: Probably won't work on Windows. Use a real OS.
 		let mut media_controls = MediaControls::new(souvlaki::PlatformConfig {
 			dbus_name: "eartube",
