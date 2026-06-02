@@ -138,7 +138,7 @@ impl AppState {
 						.map(|i| index == i)
 						.unwrap_or(false);
 					let thumb = self.thumbnail_manager.get(&item.id);
-					let card = track_card(item, current, thumb);
+					let card = track_card(item, current, thumb, index);
 					mouse_area(card).on_press(msg).into()
 				}),
 		))
@@ -378,6 +378,12 @@ impl AppState {
 					.unwrap();
 				Task::none()
 			}
+			Message::RemoveFromQueue(i) => {
+				self.playback_tx
+					.send(PlaybackCommand::RemoveFromQueue(i))
+					.unwrap();
+				Task::none()
+			}
 			Message::StartRadio(track) => Task::perform(
 				async move { new_radio(track).await.map_err(|e| e.to_string()) },
 				Message::FetchPlaylist,
@@ -485,6 +491,7 @@ pub enum Message {
 	ToggleFavorite(TrackItem),
 	SelectTrack(TrackItem),
 	AddToQueue(TrackItem),
+	RemoveFromQueue(usize),
 	StartRadio(TrackItem),
 	FetchPlaylist(Result<Vec<TrackItem>, String>),
 }
@@ -517,7 +524,12 @@ fn duration_fmt(d: Duration) -> String {
 	format!("{}:{:02}", d_min, d_sec)
 }
 
-fn track_card(track: &TrackItem, current: bool, thumb: image::Handle) -> Element<'_, Message> {
+fn track_card(
+	track: &TrackItem,
+	current: bool,
+	thumb: image::Handle,
+	index: usize,
+) -> Element<'_, Message> {
 	let (bg_color, border_color, name_color, artist_color) = if current {
 		(
 			Color::from_rgb8(45, 45, 60),
@@ -560,18 +572,31 @@ fn track_card(track: &TrackItem, current: bool, thumb: image::Handle) -> Element
 
 	let column = column![name, artists].spacing(6).padding(10);
 
-	container(row![thumbnail, column].spacing(6).padding(10))
-		.width(Length::Fill)
-		.style(move |_: &Theme| container::Style {
-			background: Some(Background::Color(bg_color)),
-			border: Border {
-				radius: Radius::new(12.0),
-				width: if current { 2.0 } else { 1.0 },
-				color: border_color,
-			},
-			..Default::default()
-		})
-		.into()
+	let remove_button = button("Remove")
+		.height(Length::Fill)
+		.on_press(Message::RemoveFromQueue(index));
+
+	container(
+		row![
+			thumbnail,
+			column,
+			space().width(Length::Fill),
+			remove_button
+		]
+		.spacing(6)
+		.padding(10),
+	)
+	.width(Length::Fill)
+	.style(move |_: &Theme| container::Style {
+		background: Some(Background::Color(bg_color)),
+		border: Border {
+			radius: Radius::new(12.0),
+			width: if current { 2.0 } else { 1.0 },
+			color: border_color,
+		},
+		..Default::default()
+	})
+	.into()
 }
 
 fn favorite_track_card(track: &TrackItem, thumb: image::Handle) -> Element<'_, Message> {

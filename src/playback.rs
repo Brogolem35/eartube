@@ -180,6 +180,15 @@ impl Playback {
 	pub fn get_track(&self, index: usize) -> Option<&TrackItem> {
 		self.list.get(index)
 	}
+
+	pub fn remove(&mut self, index: usize) {
+		self.list.remove(index);
+		if let Some(ref cur) = self.index
+			&& *cur == index
+		{
+			self.player = PlayerState::None;
+		}
+	}
 }
 
 impl Debug for Playback {
@@ -204,6 +213,7 @@ pub enum PlaybackCommand {
 	Seek(Duration),
 	SetVolume(f32),
 	PushTrack(TrackItem),
+	RemoveFromQueue(usize),
 }
 
 pub enum PlaybackEvent {
@@ -291,6 +301,11 @@ pub async fn playback_command(
 		}
 		PlaybackCommand::PushTrack(t) => {
 			pl.push_track(t);
+			tx.send(PlaybackEvent::PlaylistUpdated(pl.playback_view()))
+				.unwrap();
+		}
+		PlaybackCommand::RemoveFromQueue(i) => {
+			pl.remove(i);
 			tx.send(PlaybackEvent::PlaylistUpdated(pl.playback_view()))
 				.unwrap();
 		}
