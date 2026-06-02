@@ -6,6 +6,7 @@ use iced::{
 	border::Radius,
 	event,
 	keyboard::{self, Key, key::Named},
+	mouse::ScrollDelta,
 	widget::{
 		Column, Row, button, column, container, image, mouse_area, row, scrollable, sensor,
 		slider, space, svg, text, text_input,
@@ -246,19 +247,29 @@ impl AppState {
 	}
 
 	fn view_volume_slider(&self) -> Row<'_, Message> {
-		let slider = slider(
-			0.0..=1.0,
-			self.playback_view.player.volume,
-			Message::VolumeChanged,
-		)
-		.step(0.005)
-		.width(100);
+		let vol = self.playback_view.player.volume;
+		let slider = slider(0.0..=1.0, vol, Message::VolumeChanged)
+			.step(0.005)
+			.width(100);
+		let slider_area = mouse_area(slider).on_scroll(move |d| match d {
+			ScrollDelta::Lines { y, .. } | ScrollDelta::Pixels { y, .. } => {
+				match y.total_cmp(&0.0) {
+					std::cmp::Ordering::Less => {
+						Message::VolumeChanged((vol - 0.01).max(0.0))
+					}
+					std::cmp::Ordering::Greater => {
+						Message::VolumeChanged((vol + 0.01).min(1.0))
+					}
+					std::cmp::Ordering::Equal => Message::VolumeChanged(vol),
+				}
+			}
+		});
 		let vol_percent = (self.playback_view.player.volume * 100.0) as u32;
 		let text = text(format!("{:>3}%", vol_percent))
 			.align_x(Horizontal::Right)
 			.width(40);
 
-		row![slider, text]
+		row![slider_area, text]
 			.align_y(Vertical::Center)
 			.width(Length::Fill)
 			.spacing(5)
