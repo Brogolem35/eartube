@@ -74,7 +74,7 @@ impl AppState {
 			playback_view: PlaybackView::default(),
 			playback_hold_pos: None,
 
-			favorites_view: data::get_favorites().clone(),
+			favorites_view: data::get_favorites().iter().cloned().rev().collect(),
 
 			view: Scene::MainMenu,
 			playlist_scene: false,
@@ -102,15 +102,11 @@ impl AppState {
 		let search = self.view_search_input();
 		let playback_control = self.view_playback_control();
 
-		let fav_text = text("Favorites").size(18).color(Color::WHITE);
-		let fav_scroll = scrollable(row(self.favorites_view.iter().rev().map(|item| {
-			let thumb = self.thumbnail_manager.get(&item.id);
-			favorite_track_card(item, thumb)
-		})))
-		.id("fav_scroll")
-		.horizontal()
-		.spacing(5);
-		let favorites = column![fav_text, fav_scroll,];
+		let favorites = Self::view_menu_playlist(
+			"Favorites",
+			&self.favorites_view,
+			&self.thumbnail_manager,
+		);
 
 		let menu_scroll = scrollable(favorites)
 			.width(Length::Fill)
@@ -121,6 +117,37 @@ impl AppState {
 			.width(Length::Fill)
 			.height(Length::Fill)
 			.into()
+	}
+
+	fn view_menu_playlist<'a>(
+		name: &'a str,
+		playlist: &'a Vec<TrackItem>,
+		thumb_manager: &'a ThumbnailCache,
+	) -> Element<'a, Message> {
+		let title = text(name).size(18).color(Color::WHITE);
+
+		let play_icon = svg(svg::Handle::from_memory(icons::PLAY)).width(18);
+		let play_text = text("Play");
+		let play_row = row![play_icon, play_text]
+			.align_y(Vertical::Center)
+			.spacing(2);
+		let play_button = button(play_row)
+			.on_press(Message::StartPlaylist(playlist.clone()))
+			.style(transparent_button_style)
+			.padding(5);
+
+		let upper_row = row![title, play_button, space().width(Length::Fill)]
+			.align_y(Vertical::Center)
+			.spacing(10);
+
+		let pl_scroll = scrollable(row(playlist.iter().map(|item| {
+			let thumb = thumb_manager.get(&item.id);
+			favorite_track_card(item, thumb)
+		})))
+		.horizontal()
+		.spacing(5);
+
+		column![upper_row, pl_scroll].spacing(3).into()
 	}
 
 	fn view_playlist(&self) -> Element<'_, Message> {
@@ -367,7 +394,8 @@ impl AppState {
 			}
 			Message::ToggleFavorite(track) => {
 				toggle_favorite(&track);
-				self.favorites_view = data::get_favorites().to_owned();
+				self.favorites_view =
+					data::get_favorites().iter().cloned().rev().collect();
 				Task::none()
 			}
 			Message::SelectTrack(track) => {
@@ -392,6 +420,12 @@ impl AppState {
 				async move { new_radio(track).await.map_err(|e| e.to_string()) },
 				Message::FetchPlaylist,
 			),
+			Message::StartPlaylist(items) => {
+				self.playback_tx
+					.send(PlaybackCommand::LoadPlaylist(items))
+					.unwrap();
+				Task::none()
+			}
 			Message::Exit => iced::exit(),
 		}
 	}
@@ -497,6 +531,7 @@ pub enum Message {
 	AddToQueue(TrackItem),
 	RemoveFromQueue(usize),
 	StartRadio(TrackItem),
+	StartPlaylist(Vec<TrackItem>),
 	FetchPlaylist(Result<Vec<TrackItem>, String>),
 }
 
