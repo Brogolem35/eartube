@@ -130,7 +130,7 @@ impl AppState {
 
 	fn view_menu_playlist<'a>(
 		name: &'a str,
-		playlist: &'a Vec<TrackItem>,
+		playlist: &'a [TrackItem],
 		thumb_manager: &'a ThumbnailCache,
 	) -> Element<'a, Message> {
 		let title = text(name).size(18).color(Color::WHITE);
@@ -141,7 +141,7 @@ impl AppState {
 			.align_y(Vertical::Center)
 			.spacing(2);
 		let play_button = button(play_row)
-			.on_press(Message::StartPlaylist(playlist.clone()))
+			.on_press(Message::StartPlaylist(playlist.to_owned()))
 			.style(transparent_button_style)
 			.padding(5);
 

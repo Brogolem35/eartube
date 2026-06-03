@@ -85,7 +85,6 @@ impl Playback {
 
 	pub fn push_track(&mut self, track: TrackItem) {
 		self.list.push(track);
-		self.index;
 	}
 
 	pub fn seek_forward(&mut self) -> anyhow::Result<()> {

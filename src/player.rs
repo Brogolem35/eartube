@@ -129,9 +129,8 @@ impl PlayerState {
 
 impl Drop for PlayerState {
 	fn drop(&mut self) {
-		match self {
-			PlayerState::Loading(h) => h.abort(),
-			_ => {}
+		if let PlayerState::Loading(h) = self {
+			h.abort();
 		}
 	}
 }
