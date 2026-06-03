@@ -102,14 +102,15 @@ impl AppState {
 		let search = self.view_search_input();
 		let playback_control = self.view_playback_control();
 
+		let fav_text = text("Favorites").size(18).color(Color::WHITE);
 		let fav_scroll = scrollable(row(self.favorites_view.iter().rev().map(|item| {
 			let thumb = self.thumbnail_manager.get(&item.id);
 			favorite_track_card(item, thumb)
 		})))
 		.id("fav_scroll")
-		.horizontal();
-
-		let favorites = column![text("Favorites"), fav_scroll,];
+		.horizontal()
+		.spacing(5);
+		let favorites = column![fav_text, fav_scroll,];
 
 		let menu_scroll = scrollable(favorites)
 			.width(Length::Fill)
@@ -172,7 +173,7 @@ impl AppState {
 			.width(button_width);
 
 		let playback_progress = self.view_playback_progress();
-		let control_buttons = row![skipp_button, pause_button, skipn_button];
+		let control_buttons = row![skipp_button, pause_button, skipn_button].spacing(2);
 
 		let volume_slider = self.view_volume_slider();
 
@@ -191,7 +192,7 @@ impl AppState {
 
 		let controls_row = row![left_row, control_buttons, volume_slider]
 			.align_y(Vertical::Center)
-			.spacing(50);
+			.spacing(35);
 
 		column![playback_progress, controls_row,]
 			.align_x(Horizontal::Center)
@@ -268,7 +269,10 @@ impl AppState {
 			.on_submit(Message::Play);
 		let play_button = button("Play").on_press(Message::Play);
 
-		column![search_input, play_button].into()
+		column![search_input, play_button]
+			.spacing(5)
+			.padding(5)
+			.into()
 	}
 
 	fn update(&mut self, message: Message) -> Task<Message> {
@@ -553,11 +557,7 @@ fn track_card(
 	.on_show(|_| Message::ImagePopIn(ThumbnailSource::new(track)))
 	.key_ref(&track.id);
 
-	let name = text(&track.name)
-		.size(20)
-		.style(move |_: &Theme| text::Style {
-			color: Some(name_color),
-		});
+	let name = text(&track.name).size(20).color(name_color);
 
 	let artists = text(track
 		.artists
@@ -566,9 +566,7 @@ fn track_card(
 		.collect::<Vec<_>>()
 		.join(", "))
 	.size(14)
-	.style(move |_: &Theme| text::Style {
-		color: Some(artist_color),
-	});
+	.color(artist_color);
 
 	let column = column![name, artists].spacing(6).padding(10);
 
@@ -621,11 +619,7 @@ fn favorite_track_card(track: &TrackItem, thumb: image::Handle) -> Element<'_, M
 	.on_show(|_| Message::ImagePopIn(ThumbnailSource::new(track)))
 	.key_ref(&track.id);
 
-	let name = text(ellipsize(&track.name, 20))
-		.size(14)
-		.style(move |_: &Theme| text::Style {
-			color: Some(name_color),
-		});
+	let name = text(ellipsize(&track.name, 20)).size(14).color(name_color);
 
 	let artists = text(ellipsize(
 		&track.artists
@@ -636,9 +630,7 @@ fn favorite_track_card(track: &TrackItem, thumb: image::Handle) -> Element<'_, M
 		20,
 	))
 	.size(14)
-	.style(move |_: &Theme| text::Style {
-		color: Some(artist_color),
-	});
+	.color(artist_color);
 
 	let column = column![thumbnail, name, artists].spacing(6).padding(10);
 
@@ -690,9 +682,7 @@ fn controls_track_card(track: &TrackItem, thumb: image::Handle) -> Element<'_, M
 
 	let name = text(&track.name)
 		.size(16)
-		.style(move |_: &Theme| text::Style {
-			color: Some(name_color),
-		})
+		.color(name_color)
 		.wrapping(text::Wrapping::None);
 
 	let artists = text(track
@@ -702,9 +692,7 @@ fn controls_track_card(track: &TrackItem, thumb: image::Handle) -> Element<'_, M
 		.collect::<Vec<_>>()
 		.join(", "))
 	.size(14)
-	.style(move |_: &Theme| text::Style {
-		color: Some(artist_color),
-	})
+	.color(artist_color)
 	.wrapping(text::Wrapping::None);
 
 	let column = column![name, artists].spacing(6).padding(10);
