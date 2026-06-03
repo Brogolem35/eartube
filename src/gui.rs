@@ -28,6 +28,7 @@ use crate::{
 
 const SMALL_THUMBNAIL_SIZE: u32 = 80;
 const SEMI_TRANSPARENT_COLOR: Color = Color::from_rgba(0.3, 0.3, 0.3, 0.3);
+const MOST_VIEWED_AMOUNT: usize = 20;
 
 struct AppState {
 	search_input: String,
@@ -37,6 +38,7 @@ struct AppState {
 
 	// Favorites list is cloned everytime it is updated to avoid constant locking and lifetime issues.
 	favorites_view: Vec<TrackItem>,
+	most_viewed_view: Vec<TrackItem>,
 
 	view: Scene,
 	playlist_scene: bool,
@@ -75,6 +77,7 @@ impl AppState {
 			playback_hold_pos: None,
 
 			favorites_view: data::get_favorites().iter().cloned().rev().collect(),
+			most_viewed_view: data::get_most_viewed_amount(MOST_VIEWED_AMOUNT),
 
 			view: Scene::MainMenu,
 			playlist_scene: false,
@@ -108,7 +111,13 @@ impl AppState {
 			&self.thumbnail_manager,
 		);
 
-		let menu_scroll = scrollable(favorites)
+		let most_played = Self::view_menu_playlist(
+			"Most Played",
+			&self.most_viewed_view,
+			&self.thumbnail_manager,
+		);
+
+		let menu_scroll = scrollable(column![favorites, most_played])
 			.width(Length::Fill)
 			.height(Length::Fill)
 			.id("main_menu_scroll");
@@ -459,6 +468,8 @@ impl AppState {
 			match event {
 				PlaybackEvent::PlaylistUpdated(view) => {
 					self.playback_view = view;
+					self.most_viewed_view =
+						data::get_most_viewed_amount(MOST_VIEWED_AMOUNT);
 					let meta = MediaMeta::from(&self.playback_view);
 					let _ = self.media_controls.set_metadata(meta.metadata);
 				}

@@ -1,4 +1,5 @@
 use std::{
+	cmp::Reverse,
 	fs,
 	path::PathBuf,
 	sync::LazyLock,
@@ -7,6 +8,7 @@ use std::{
 
 use dashmap::DashMap;
 use foldhash::fast::FixedState;
+use iter_tools::Itertools;
 use parking_lot::{RwLock, RwLockReadGuard};
 use rustypipe::model::TrackItem;
 use serde::{Deserialize, Serialize};
@@ -81,6 +83,16 @@ pub fn update_track_view(track_item: TrackItem) {
 	}
 
 	save_track_stats();
+}
+
+pub fn get_most_viewed_amount(amount: usize) -> Vec<TrackItem> {
+	TRACK_STATS
+		.iter()
+		.map(|i| i.value().clone())
+		.sorted_unstable_by_key(|v| (Reverse(v.views), Reverse(v.last_viewed)))
+		.take(amount)
+		.map(|v| v.track)
+		.collect()
 }
 
 static FAVORITES: LazyLock<RwLock<Vec<TrackItem>>> =
