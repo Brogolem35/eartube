@@ -14,6 +14,7 @@ use iced::{
 	window,
 };
 use iced_aw::{ContextMenu, context_menu, style::colors};
+use rand::{rng, seq::SliceRandom};
 use rustypipe::model::TrackItem;
 use souvlaki::{MediaControlEvent, MediaControls};
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
@@ -145,9 +146,24 @@ impl AppState {
 			.style(transparent_button_style)
 			.padding(5);
 
-		let upper_row = row![title, play_button, space().width(Length::Fill)]
+		let shuffle_icon = svg(svg::Handle::from_memory(icons::SHUFFLE)).width(18);
+		let shuffle_text = text("Shuffle");
+		let shuffle_row = row![shuffle_icon, shuffle_text]
 			.align_y(Vertical::Center)
-			.spacing(10);
+			.spacing(2);
+		let shuffle_button = button(shuffle_row)
+			.on_press(Message::StartShuffle(playlist.to_owned()))
+			.style(transparent_button_style)
+			.padding(5);
+
+		let upper_row = row![
+			title,
+			play_button,
+			shuffle_button,
+			space().width(Length::Fill)
+		]
+		.align_y(Vertical::Center)
+		.spacing(10);
 
 		let pl_scroll = scrollable(row(playlist.iter().map(|item| {
 			let thumb = thumb_manager.get(&item.id);
@@ -435,6 +451,13 @@ impl AppState {
 					.unwrap();
 				Task::none()
 			}
+			Message::StartShuffle(mut items) => {
+				items.shuffle(&mut rng());
+				self.playback_tx
+					.send(PlaybackCommand::LoadPlaylist(items))
+					.unwrap();
+				Task::none()
+			}
 			Message::Exit => iced::exit(),
 		}
 	}
@@ -543,6 +566,7 @@ pub enum Message {
 	RemoveFromQueue(usize),
 	StartRadio(TrackItem),
 	StartPlaylist(Vec<TrackItem>),
+	StartShuffle(Vec<TrackItem>),
 	FetchPlaylist(Result<Vec<TrackItem>, String>),
 }
 

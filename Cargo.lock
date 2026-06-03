@@ -1404,6 +1404,7 @@ dependencies = [
  "iced_aw",
  "itertools",
  "parking_lot",
+ "rand 0.10.1",
  "reqwest 0.13.4",
  "rodio",
  "rustypipe",
