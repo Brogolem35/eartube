@@ -11,7 +11,7 @@ dirs = "6.0.0"
 foldhash = "0.2.0"
 iced = { version = "0.14.0", features = ["tokio", "debug", "image", "svg"] }
 iced_aw = "0.14.1"
-iter_tools = "0.50.0"
+itertools = "0.14.0"
 parking_lot = { version = "0.12.5", features = ["deadlock_detection"] }
 reqwest = "0.13.4"
 rodio = "0.22.2"
