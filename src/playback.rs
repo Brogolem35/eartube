@@ -182,10 +182,14 @@ impl Playback {
 
 	pub fn remove(&mut self, index: usize) {
 		self.list.remove(index);
-		if let Some(ref cur) = self.index
-			&& *cur == index
-		{
-			self.player = PlayerState::None;
+		let Some(ref mut cur) = self.index else {
+			return;
+		};
+
+		match (*cur).cmp(&index) {
+			std::cmp::Ordering::Equal => self.player = PlayerState::None,
+			std::cmp::Ordering::Greater => *cur -= 1,
+			std::cmp::Ordering::Less => {}
 		}
 	}
 }
