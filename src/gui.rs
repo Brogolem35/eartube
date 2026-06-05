@@ -4,9 +4,10 @@ use iced::{
 	Background, Border, Color, ContentFit, Element, Length, Subscription, Task, Theme,
 	alignment::{Horizontal, Vertical},
 	border::Radius,
-	event,
+	color, event,
 	keyboard::{self, Key, key::Named},
 	mouse::ScrollDelta,
+	theme::{Palette, palette},
 	widget::{
 		Column, Row, button, column, container, image, mouse_area, row, scrollable, sensor,
 		slider, space, svg, text, text_input,
@@ -532,6 +533,42 @@ impl AppState {
 		Task::none()
 	}
 
+	fn theme(&self) -> Option<Theme> {
+		let palette = Palette {
+			text: Color::WHITE,
+			primary: color!(210, 11, 11),
+			..Palette::DARK
+		};
+		Some(Theme::custom_with_fn(
+			"EarTube",
+			palette,
+			Self::theme_extented,
+		))
+	}
+
+	fn theme_extented(palette: Palette) -> palette::Extended {
+		palette::Extended {
+			background: palette::Background {
+				strongest: palette::Pair::new(color!(30, 30, 30), palette.text),
+				strong: palette::Pair::new(
+					color!(60, 60, 60),
+					color!(180, 180, 180),
+				),
+				..palette::Background::new(palette.background, palette.text)
+			},
+			primary: palette::Primary {
+				weak: palette::Pair::new(color!(100, 15, 15), palette.text),
+				..palette::Primary::generate(
+					palette.primary,
+					palette.background,
+					palette.text,
+				)
+			},
+			is_dark: true,
+			..palette::Extended::generate(palette)
+		}
+	}
+
 	fn is_favorited(&self, id: &str) -> bool {
 		self.favorites_view.iter().any(|t| t.id == id)
 	}
@@ -573,6 +610,7 @@ pub enum Message {
 pub fn iced_main() -> iced::Result {
 	iced::application(AppState::new, AppState::update, AppState::view)
 		.title("Eartube")
+		.theme(AppState::theme)
 		.exit_on_close_request(false)
 		.subscription(AppState::subscription)
 		.run()
@@ -604,22 +642,6 @@ fn track_card(
 	thumb: image::Handle,
 	index: usize,
 ) -> Element<'_, Message> {
-	let (bg_color, border_color, name_color, artist_color) = if current {
-		(
-			Color::from_rgb8(45, 45, 60),
-			Color::from_rgb8(120, 120, 255),
-			Color::from_rgb8(255, 255, 255),
-			Color::from_rgb8(210, 210, 255),
-		)
-	} else {
-		(
-			Color::from_rgb8(30, 30, 30),
-			Color::from_rgb8(60, 60, 60),
-			Color::WHITE,
-			Color::from_rgb8(180, 180, 180),
-		)
-	};
-
 	let thumbnail = sensor(image(thumb)
 		.content_fit(ContentFit::Cover)
 		.height(SMALL_THUMBNAIL_SIZE)
@@ -627,7 +649,7 @@ fn track_card(
 	.on_show(|_| Message::ImagePopIn(ThumbnailSource::new(track)))
 	.key_ref(&track.id);
 
-	let name = text(&track.name).size(20).color(name_color);
+	let name = text(&track.name).size(20);
 
 	let artists = text(track
 		.artists
@@ -636,7 +658,9 @@ fn track_card(
 		.collect::<Vec<_>>()
 		.join(", "))
 	.size(14)
-	.color(artist_color);
+	.style(|t: &Theme| text::Style {
+		color: t.extended_palette().background.strong.text.into(),
+	});
 
 	let column = column![name, artists].spacing(6).padding(10);
 
@@ -657,27 +681,11 @@ fn track_card(
 		.padding(10),
 	)
 	.width(Length::Fill)
-	.style(move |_: &Theme| container::Style {
-		background: Some(Background::Color(bg_color)),
-		border: Border {
-			radius: Radius::new(12.0),
-			width: if current { 2.0 } else { 1.0 },
-			color: border_color,
-		},
-		..Default::default()
-	})
+	.style(move |t: &Theme| track_card_style(t, current))
 	.into()
 }
 
 fn favorite_track_card(track: &TrackItem, thumb: image::Handle) -> Element<'_, Message> {
-	let (bg_color, border_color, name_color, artist_color) = {
-		(
-			Color::from_rgb8(30, 30, 30),
-			Color::from_rgb8(60, 60, 60),
-			Color::WHITE,
-			Color::from_rgb8(180, 180, 180),
-		)
-	};
 	let click_msg = Message::SelectTrack(track.clone());
 	let queue_msg = Message::AddToQueue(track.clone());
 	let radio_msg = Message::StartRadio(track.clone());
@@ -689,7 +697,7 @@ fn favorite_track_card(track: &TrackItem, thumb: image::Handle) -> Element<'_, M
 	.on_show(|_| Message::ImagePopIn(ThumbnailSource::new(track)))
 	.key_ref(&track.id);
 
-	let name = text(ellipsize(&track.name, 20)).size(14).color(name_color);
+	let name = text(ellipsize(&track.name, 20)).size(14);
 
 	let artists = text(ellipsize(
 		&track.artists
@@ -700,21 +708,15 @@ fn favorite_track_card(track: &TrackItem, thumb: image::Handle) -> Element<'_, M
 		20,
 	))
 	.size(14)
-	.color(artist_color);
+	.style(|t: &Theme| text::Style {
+		color: t.extended_palette().background.strong.text.into(),
+	});
 
 	let column = column![thumbnail, name, artists].spacing(6).padding(10);
 
 	let card = container(column)
 		.width(Length::Fill)
-		.style(move |_: &Theme| container::Style {
-			background: Some(Background::Color(bg_color)),
-			border: Border {
-				radius: Radius::new(12.0),
-				width: 1.0,
-				color: border_color,
-			},
-			..Default::default()
-		});
+		.style(move |t: &Theme| track_card_style(t, false));
 
 	let click = mouse_area(card).on_press(click_msg.clone());
 	ContextMenu::new(click, move || {
@@ -741,8 +743,6 @@ fn favorite_track_card(track: &TrackItem, thumb: image::Handle) -> Element<'_, M
 }
 
 fn controls_track_card(track: &TrackItem, thumb: image::Handle) -> Element<'_, Message> {
-	let (name_color, artist_color) = (Color::WHITE, Color::from_rgb8(180, 180, 180));
-
 	let thumbnail = sensor(image(thumb)
 		.content_fit(ContentFit::Cover)
 		.height(SMALL_THUMBNAIL_SIZE)
@@ -750,10 +750,7 @@ fn controls_track_card(track: &TrackItem, thumb: image::Handle) -> Element<'_, M
 	.on_show(|_| Message::ImagePopIn(ThumbnailSource::new(track)))
 	.key_ref(&track.id);
 
-	let name = text(&track.name)
-		.size(16)
-		.color(name_color)
-		.wrapping(text::Wrapping::None);
+	let name = text(&track.name).size(16).wrapping(text::Wrapping::None);
 
 	let artists = text(track
 		.artists
@@ -762,7 +759,9 @@ fn controls_track_card(track: &TrackItem, thumb: image::Handle) -> Element<'_, M
 		.collect::<Vec<_>>()
 		.join(", "))
 	.size(14)
-	.color(artist_color)
+	.style(|t: &Theme| text::Style {
+		color: t.extended_palette().background.strong.text.into(),
+	})
 	.wrapping(text::Wrapping::None);
 
 	let column = column![name, artists].spacing(6).padding(10);
@@ -795,6 +794,29 @@ fn context_button_style(t: &Theme, s: button::Status) -> button::Style {
 			radius: 0.0.into(),
 		},
 		..transparent_button_style(t, s)
+	}
+}
+
+fn track_card_style(t: &Theme, current: bool) -> container::Style {
+	match current {
+		true => container::Style {
+			background: Some(t.extended_palette().primary.weak.color.into()),
+			border: Border {
+				radius: Radius::new(12),
+				width: 2.0,
+				color: t.extended_palette().primary.base.color.into(),
+			},
+			..Default::default()
+		},
+		false => container::Style {
+			background: Some(t.extended_palette().background.strongest.color.into()),
+			border: Border {
+				radius: Radius::new(12),
+				width: 1.0,
+				color: t.extended_palette().background.strong.color.into(),
+			},
+			..Default::default()
+		},
 	}
 }
 
