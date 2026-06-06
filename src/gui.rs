@@ -851,7 +851,7 @@ fn track_card_style(t: &Theme, current: bool) -> container::Style {
 			border: Border {
 				radius: Radius::new(12),
 				width: 2.0,
-				color: t.extended_palette().primary.base.color.into(),
+				color: t.extended_palette().primary.base.color,
 			},
 			..Default::default()
 		},
@@ -860,7 +860,7 @@ fn track_card_style(t: &Theme, current: bool) -> container::Style {
 			border: Border {
 				radius: Radius::new(12),
 				width: 1.0,
-				color: t.extended_palette().background.strong.color.into(),
+				color: t.extended_palette().background.strong.color,
 			},
 			..Default::default()
 		},
