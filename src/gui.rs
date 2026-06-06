@@ -50,7 +50,7 @@ struct AppState {
 	playback_tx: UnboundedSender<PlaybackCommand>,
 	playback_rx: UnboundedReceiver<PlaybackEvent>,
 
-	media_controls: MediaControls,
+	media_controls: Option<MediaControls>,
 	media_controls_rx: UnboundedReceiver<MediaControlEvent>,
 }
 
@@ -59,17 +59,21 @@ impl AppState {
 		let (player_tx, player_rx) = mpsc::unbounded_channel();
 		let (event_tx, event_rx) = mpsc::unbounded_channel();
 
-		// TODO: Probably won't work on Windows. Use a real OS.
-		let mut media_controls = MediaControls::new(souvlaki::PlatformConfig {
-			dbus_name: "eartube",
-			display_name: "Eartube",
-			hwnd: None,
-		})
-		.unwrap();
 		let (mc_tx, mc_rx) = mpsc::unbounded_channel();
-		let _ = media_controls.attach(move |e| {
-			let _ = mc_tx.send(e);
-		});
+		let media_controls = if cfg!(target_os = "windows") {
+			None
+		} else {
+			let mut mc = MediaControls::new(souvlaki::PlatformConfig {
+				dbus_name: "eartube",
+				display_name: "Eartube",
+				hwnd: None,
+			})
+			.expect("Could not create Media Controls");
+			let _ = mc.attach(move |e| {
+				let _ = mc_tx.send(e);
+			});
+			Some(mc)
+		};
 
 		tokio::spawn(playback_loop(player_rx, event_tx));
 
@@ -362,7 +366,9 @@ impl AppState {
 			Message::Tick => self.tick(),
 			Message::MediaControlTick => {
 				let meta = MediaMeta::from(&self.playback_view);
-				let _ = self.media_controls.set_playback(meta.playback);
+				if let Some(ref mut mc) = self.media_controls {
+					let _ = mc.set_playback(meta.playback);
+				}
 				Task::none()
 			}
 			Message::SeekForward => {
@@ -495,7 +501,9 @@ impl AppState {
 					self.most_viewed_view =
 						data::get_most_viewed_amount(MOST_VIEWED_AMOUNT);
 					let meta = MediaMeta::from(&self.playback_view);
-					let _ = self.media_controls.set_metadata(meta.metadata);
+					if let Some(ref mut mc) = self.media_controls {
+						let _ = mc.set_metadata(meta.metadata);
+					}
 				}
 				PlaybackEvent::PlayerUpdated(view) => {
 					self.playback_view.player = view;
