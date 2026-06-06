@@ -23,7 +23,10 @@ use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 use crate::{
 	data::{self, is_favorited, toggle_favorite},
 	icons, new_radio,
-	playback::{MediaMeta, PlaybackCommand, PlaybackEvent, PlaybackView, playback_loop},
+	playback::{
+		MediaMeta, PlaybackCommand, PlaybackEvent, PlaybackView, playback_loop,
+		youtube_link,
+	},
 	search_and_play,
 	thumbnail::{ThumbnailCache, ThumbnailSource},
 };
@@ -471,6 +474,7 @@ impl AppState {
 					.unwrap();
 				Task::none()
 			}
+			Message::CopyText(s) => iced::clipboard::write(s),
 			Message::Exit => iced::exit(),
 		}
 	}
@@ -721,6 +725,7 @@ impl AppState {
 		let queue_msg = Message::AddToQueue(track.clone());
 		let radio_msg = Message::StartRadio(track.clone());
 		let fav_msg = Message::ToggleFavorite(track.clone());
+		let copy_msg = Message::CopyText(youtube_link(&track.id));
 
 		let fav_text = if !is_favorited(&track.id) {
 			"Favorite"
@@ -743,6 +748,10 @@ impl AppState {
 					.style(context_button_style),
 				button(fav_text)
 					.on_press(fav_msg.clone())
+					.width(Length::Fill)
+					.style(context_button_style),
+				button("Copy link")
+					.on_press(copy_msg.clone())
 					.width(Length::Fill)
 					.style(context_button_style),
 			]
@@ -786,6 +795,7 @@ pub enum Message {
 	StartRadio(TrackItem),
 	StartPlaylist(Vec<TrackItem>),
 	StartShuffle(Vec<TrackItem>),
+	CopyText(String),
 	FetchPlaylist(Result<Vec<TrackItem>, String>),
 }
 
