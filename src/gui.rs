@@ -21,7 +21,7 @@ use souvlaki::{MediaControlEvent, MediaControls};
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 
 use crate::{
-	data::{self, toggle_favorite},
+	data::{self, is_favorited, toggle_favorite},
 	icons, new_radio,
 	playback::{MediaMeta, PlaybackCommand, PlaybackEvent, PlaybackView, playback_loop},
 	search_and_play,
@@ -643,8 +643,6 @@ impl AppState {
 		thumb: image::Handle,
 	) -> Element<'a, Message> {
 		let click_msg = Message::SelectTrack(track.clone());
-		let queue_msg = Message::AddToQueue(track.clone());
-		let radio_msg = Message::StartRadio(track.clone());
 
 		let thumbnail = sensor(image(thumb)
 			.content_fit(ContentFit::Cover)
@@ -678,27 +676,7 @@ impl AppState {
 		.width(Length::Fill)
 		.style(|t: &Theme| track_card_style(t, false));
 
-		ContextMenu::new(card, move || {
-			column![
-				button("Play")
-					.on_press(click_msg.clone())
-					.width(Length::Fill)
-					.style(context_button_style),
-				button("Add to queue")
-					.on_press(queue_msg.clone())
-					.style(context_button_style),
-				button("Start radio")
-					.on_press(radio_msg.clone())
-					.width(Length::Fill)
-					.style(context_button_style),
-			]
-			.width(Length::Shrink)
-			.into()
-		})
-		.style(|t: &Theme, _| context_menu::Style {
-			background: Background::Color(t.palette().background),
-		})
-		.into()
+		self.track_context_menu(track, card.into())
 	}
 
 	fn controls_track_card<'a>(
@@ -732,6 +710,49 @@ impl AppState {
 		container(row![thumbnail, column].spacing(6))
 			.width(Length::Fill)
 			.into()
+	}
+
+	fn track_context_menu<'a>(
+		&'a self,
+		track: &'a TrackItem,
+		inner: Element<'a, Message>,
+	) -> Element<'a, Message> {
+		let play_msg = Message::SelectTrack(track.clone());
+		let queue_msg = Message::AddToQueue(track.clone());
+		let radio_msg = Message::StartRadio(track.clone());
+		let fav_msg = Message::ToggleFavorite(track.clone());
+
+		let fav_text = if !is_favorited(&track.id) {
+			"Favorite"
+		} else {
+			"Unfavorite"
+		};
+
+		ContextMenu::new(inner, move || {
+			column![
+				button("Play")
+					.on_press(play_msg.clone())
+					.width(Length::Fill)
+					.style(context_button_style),
+				button("Add to queue")
+					.on_press(queue_msg.clone())
+					.style(context_button_style),
+				button("Start radio")
+					.on_press(radio_msg.clone())
+					.width(Length::Fill)
+					.style(context_button_style),
+				button(fav_text)
+					.on_press(fav_msg.clone())
+					.width(Length::Fill)
+					.style(context_button_style),
+			]
+			.width(Length::Shrink)
+			.into()
+		})
+		.style(|t: &Theme, _| context_menu::Style {
+			background: Background::Color(t.palette().background),
+		})
+		.into()
 	}
 }
 
