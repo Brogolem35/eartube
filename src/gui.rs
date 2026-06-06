@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use iced::{
-	Background, Border, Color, ContentFit, Element, Length, Subscription, Task, Theme,
+	Background, Border, Color, ContentFit, Element, Length, Padding, Subscription, Task, Theme,
 	alignment::{Horizontal, Vertical},
 	border::Radius,
 	color, event,
@@ -111,21 +111,22 @@ impl AppState {
 		let search = self.view_search_input();
 		let playback_control = self.view_playback_control();
 
-		let favorites = Self::view_menu_playlist(
+		let favorites = self.view_menu_playlist(
 			"Favorites",
 			&self.favorites_view,
 			&self.thumbnail_manager,
 		);
 
-		let most_played = Self::view_menu_playlist(
+		let most_played = self.view_menu_playlist(
 			"Most Played",
 			&self.most_viewed_view,
 			&self.thumbnail_manager,
 		);
 
-		let menu_scroll = scrollable(column![favorites, most_played])
+		let menu_scroll = scrollable(column![favorites, most_played].spacing(5))
 			.width(Length::Fill)
 			.height(Length::Fill)
+			.spacing(0)
 			.id("main_menu_scroll");
 
 		column![search, menu_scroll, playback_control,]
@@ -135,6 +136,7 @@ impl AppState {
 	}
 
 	fn view_menu_playlist<'a>(
+		&'a self,
 		name: &'a str,
 		playlist: &'a [TrackItem],
 		thumb_manager: &'a ThumbnailCache,
@@ -170,10 +172,14 @@ impl AppState {
 		.align_y(Vertical::Center)
 		.spacing(10);
 
-		let pl_scroll = scrollable(row(playlist.iter().map(|item| {
-			let thumb = thumb_manager.get(&item.id);
-			favorite_track_card(item, thumb)
-		})))
+		let pl_scroll = scrollable(
+			row(playlist.iter().map(|item| {
+				let thumb = thumb_manager.get(&item.id);
+				self.favorite_track_card(item, thumb)
+			}))
+			.spacing(2)
+			.padding(Padding::new(0.0).horizontal(3)),
+		)
 		.horizontal()
 		.spacing(5);
 
@@ -196,7 +202,7 @@ impl AppState {
 						.map(|i| index == i)
 						.unwrap_or(false);
 					let thumb = self.thumbnail_manager.get(&item.id);
-					let card = track_card(item, current, thumb, index);
+					let card = self.track_card(item, current, thumb, index);
 					mouse_area(card).on_press(msg).into()
 				}),
 		))
@@ -260,7 +266,7 @@ impl AppState {
 		let field = match self.playback_view.current_track() {
 			Some(t) => {
 				let thumb = self.thumbnail_manager.get(&t.id);
-				controls_track_card(t, thumb)
+				self.controls_track_card(t, thumb)
 			}
 			None => space()
 				.height(SMALL_THUMBNAIL_SIZE)
@@ -580,6 +586,153 @@ impl AppState {
 	fn is_favorited(&self, id: &str) -> bool {
 		self.favorites_view.iter().any(|t| t.id == id)
 	}
+
+	fn track_card<'a>(
+		&'a self,
+		track: &'a TrackItem,
+		current: bool,
+		thumb: image::Handle,
+		index: usize,
+	) -> Element<'a, Message> {
+		let thumbnail = sensor(image(thumb)
+			.content_fit(ContentFit::Cover)
+			.height(SMALL_THUMBNAIL_SIZE)
+			.width(SMALL_THUMBNAIL_SIZE))
+		.on_show(|_| Message::ImagePopIn(ThumbnailSource::new(track)))
+		.key_ref(&track.id);
+
+		let name = text(&track.name).size(20);
+
+		let artists = text(track
+			.artists
+			.iter()
+			.map(|a| a.name.as_str())
+			.collect::<Vec<_>>()
+			.join(", "))
+		.size(14)
+		.style(|t: &Theme| text::Style {
+			color: t.extended_palette().background.strong.text.into(),
+		});
+
+		let column = column![name, artists].spacing(6).padding(10);
+
+		let remove_button = button(svg(svg::Handle::from_memory(icons::CROSS)))
+			.height(SMALL_THUMBNAIL_SIZE)
+			.width(SMALL_THUMBNAIL_SIZE)
+			.style(transparent_button_style)
+			.on_press(Message::RemoveFromQueue(index));
+
+		container(
+			row![
+				thumbnail,
+				column,
+				space().width(Length::Fill),
+				remove_button
+			]
+			.spacing(6)
+			.padding(10),
+		)
+		.width(Length::Fill)
+		.style(move |t: &Theme| track_card_style(t, current))
+		.into()
+	}
+
+	fn favorite_track_card<'a>(
+		&'a self,
+		track: &'a TrackItem,
+		thumb: image::Handle,
+	) -> Element<'a, Message> {
+		let click_msg = Message::SelectTrack(track.clone());
+		let queue_msg = Message::AddToQueue(track.clone());
+		let radio_msg = Message::StartRadio(track.clone());
+
+		let thumbnail = sensor(image(thumb)
+			.content_fit(ContentFit::Cover)
+			.height(200)
+			.width(200))
+		.on_show(|_| Message::ImagePopIn(ThumbnailSource::new(track)))
+		.key_ref(&track.id);
+
+		let name = text(ellipsize(&track.name, 20)).size(14);
+
+		let artists = text(ellipsize(
+			&track.artists
+				.iter()
+				.map(|a| a.name.as_str())
+				.collect::<Vec<_>>()
+				.join(", "),
+			20,
+		))
+		.size(14)
+		.style(|t: &Theme| text::Style {
+			color: t.extended_palette().background.strong.text.into(),
+		});
+
+		let column = column![thumbnail, name, artists].spacing(6).padding(10);
+
+		let card = container(
+			button(column)
+				.on_press(click_msg.clone())
+				.style(transparent_button_style),
+		)
+		.width(Length::Fill)
+		.style(|t: &Theme| track_card_style(t, false));
+
+		ContextMenu::new(card, move || {
+			column![
+				button("Play")
+					.on_press(click_msg.clone())
+					.width(Length::Fill)
+					.style(context_button_style),
+				button("Add to queue")
+					.on_press(queue_msg.clone())
+					.style(context_button_style),
+				button("Start radio")
+					.on_press(radio_msg.clone())
+					.width(Length::Fill)
+					.style(context_button_style),
+			]
+			.width(Length::Shrink)
+			.into()
+		})
+		.style(|t: &Theme, _| context_menu::Style {
+			background: Background::Color(t.palette().background),
+		})
+		.into()
+	}
+
+	fn controls_track_card<'a>(
+		&'a self,
+		track: &'a TrackItem,
+		thumb: image::Handle,
+	) -> Element<'a, Message> {
+		let thumbnail = sensor(image(thumb)
+			.content_fit(ContentFit::Cover)
+			.height(SMALL_THUMBNAIL_SIZE)
+			.width(SMALL_THUMBNAIL_SIZE))
+		.on_show(|_| Message::ImagePopIn(ThumbnailSource::new(track)))
+		.key_ref(&track.id);
+
+		let name = text(&track.name).size(16).wrapping(text::Wrapping::None);
+
+		let artists = text(track
+			.artists
+			.iter()
+			.map(|a| a.name.as_str())
+			.collect::<Vec<_>>()
+			.join(", "))
+		.size(14)
+		.style(|t: &Theme| text::Style {
+			color: t.extended_palette().background.strong.text.into(),
+		})
+		.wrapping(text::Wrapping::None);
+
+		let column = column![name, artists].spacing(6).padding(10);
+
+		container(row![thumbnail, column].spacing(6))
+			.width(Length::Fill)
+			.into()
+	}
 }
 
 #[derive(Debug, Clone)]
@@ -642,141 +795,6 @@ fn duration_fmt(d: Duration) -> String {
 	let d_min = d.as_secs() / 60;
 	let d_sec = d.as_secs() % 60;
 	format!("{}:{:02}", d_min, d_sec)
-}
-
-fn track_card(
-	track: &TrackItem,
-	current: bool,
-	thumb: image::Handle,
-	index: usize,
-) -> Element<'_, Message> {
-	let thumbnail = sensor(image(thumb)
-		.content_fit(ContentFit::Cover)
-		.height(SMALL_THUMBNAIL_SIZE)
-		.width(SMALL_THUMBNAIL_SIZE))
-	.on_show(|_| Message::ImagePopIn(ThumbnailSource::new(track)))
-	.key_ref(&track.id);
-
-	let name = text(&track.name).size(20);
-
-	let artists = text(track
-		.artists
-		.iter()
-		.map(|a| a.name.as_str())
-		.collect::<Vec<_>>()
-		.join(", "))
-	.size(14)
-	.style(|t: &Theme| text::Style {
-		color: t.extended_palette().background.strong.text.into(),
-	});
-
-	let column = column![name, artists].spacing(6).padding(10);
-
-	let remove_button = button(svg(svg::Handle::from_memory(icons::CROSS)))
-		.height(SMALL_THUMBNAIL_SIZE)
-		.width(SMALL_THUMBNAIL_SIZE)
-		.style(transparent_button_style)
-		.on_press(Message::RemoveFromQueue(index));
-
-	container(
-		row![
-			thumbnail,
-			column,
-			space().width(Length::Fill),
-			remove_button
-		]
-		.spacing(6)
-		.padding(10),
-	)
-	.width(Length::Fill)
-	.style(move |t: &Theme| track_card_style(t, current))
-	.into()
-}
-
-fn favorite_track_card(track: &TrackItem, thumb: image::Handle) -> Element<'_, Message> {
-	let click_msg = Message::SelectTrack(track.clone());
-	let queue_msg = Message::AddToQueue(track.clone());
-	let radio_msg = Message::StartRadio(track.clone());
-
-	let thumbnail = sensor(image(thumb)
-		.content_fit(ContentFit::Cover)
-		.height(200)
-		.width(200))
-	.on_show(|_| Message::ImagePopIn(ThumbnailSource::new(track)))
-	.key_ref(&track.id);
-
-	let name = text(ellipsize(&track.name, 20)).size(14);
-
-	let artists = text(ellipsize(
-		&track.artists
-			.iter()
-			.map(|a| a.name.as_str())
-			.collect::<Vec<_>>()
-			.join(", "),
-		20,
-	))
-	.size(14)
-	.style(|t: &Theme| text::Style {
-		color: t.extended_palette().background.strong.text.into(),
-	});
-
-	let column = column![thumbnail, name, artists].spacing(6).padding(10);
-
-	let card = container(column)
-		.width(Length::Fill)
-		.style(move |t: &Theme| track_card_style(t, false));
-
-	let click = mouse_area(card).on_press(click_msg.clone());
-	ContextMenu::new(click, move || {
-		column![
-			button("Play")
-				.on_press(click_msg.clone())
-				.width(Length::Fill)
-				.style(context_button_style),
-			button("Add to queue")
-				.on_press(queue_msg.clone())
-				.style(context_button_style),
-			button("Start radio")
-				.on_press(radio_msg.clone())
-				.width(Length::Fill)
-				.style(context_button_style),
-		]
-		.width(Length::Shrink)
-		.into()
-	})
-	.style(|t: &Theme, _| context_menu::Style {
-		background: Background::Color(t.palette().background),
-	})
-	.into()
-}
-
-fn controls_track_card(track: &TrackItem, thumb: image::Handle) -> Element<'_, Message> {
-	let thumbnail = sensor(image(thumb)
-		.content_fit(ContentFit::Cover)
-		.height(SMALL_THUMBNAIL_SIZE)
-		.width(SMALL_THUMBNAIL_SIZE))
-	.on_show(|_| Message::ImagePopIn(ThumbnailSource::new(track)))
-	.key_ref(&track.id);
-
-	let name = text(&track.name).size(16).wrapping(text::Wrapping::None);
-
-	let artists = text(track
-		.artists
-		.iter()
-		.map(|a| a.name.as_str())
-		.collect::<Vec<_>>()
-		.join(", "))
-	.size(14)
-	.style(|t: &Theme| text::Style {
-		color: t.extended_palette().background.strong.text.into(),
-	})
-	.wrapping(text::Wrapping::None);
-
-	let column = column![name, artists].spacing(6).padding(10);
-
-	container(row![thumbnail, column].spacing(6))
-		.width(Length::Fill)
-		.into()
 }
 
 fn transparent_button_style(t: &Theme, s: button::Status) -> button::Style {
