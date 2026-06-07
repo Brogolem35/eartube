@@ -350,7 +350,12 @@ impl AppState {
 	}
 
 	fn view_tabs(&self) -> Element<'_, Message> {
-		column![button("Home"), button("Favorites"), button("History")].into()
+		column![
+			button("Home").on_press(Message::GoHome),
+			button("Favorites"),
+			button("History")
+		]
+		.into()
 	}
 
 	fn scene_boilerplate<'a>(&'a self, inner: Element<'a, Message>) -> Element<'a, Message> {
@@ -480,6 +485,10 @@ impl AppState {
 				Task::none()
 			}
 			Message::CopyText(s) => iced::clipboard::write(s),
+			Message::GoHome => {
+				self.scene = Scene::MainMenu;
+				Task::none()
+			}
 			Message::FetchQueue(result) => {
 				let items = match result {
 					Ok(i) => i,
@@ -871,6 +880,7 @@ pub enum Message {
 	StartPlaylist(Vec<TrackItem>),
 	StartShuffle(Vec<TrackItem>),
 	CopyText(String),
+	GoHome,
 	FetchQueue(Result<Vec<TrackItem>, String>),
 	FetchSearch(Result<Vec<TrackItem>, String>),
 }
