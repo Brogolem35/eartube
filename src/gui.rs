@@ -45,8 +45,8 @@ struct AppState {
 	favorites_view: Vec<TrackItem>,
 	most_viewed_view: Vec<TrackItem>,
 
-	view: Scene,
-	playlist_scene: bool,
+	scene: Scene,
+	queue_scene: bool,
 
 	thumbnail_manager: ThumbnailCache,
 
@@ -88,8 +88,8 @@ impl AppState {
 			favorites_view: data::get_favorites().iter().cloned().rev().collect(),
 			most_viewed_view: data::get_most_viewed_amount(MOST_VIEWED_AMOUNT),
 
-			view: Scene::MainMenu,
-			playlist_scene: false,
+			scene: Scene::MainMenu,
+			queue_scene: false,
 
 			thumbnail_manager: ThumbnailCache::default(),
 
@@ -102,11 +102,11 @@ impl AppState {
 	}
 
 	fn view(&self) -> Element<'_, Message> {
-		match self.playlist_scene {
-			false => match self.view {
+		match self.queue_scene {
+			false => match self.scene {
 				Scene::MainMenu => self.view_main_menu(),
 			},
-			true => self.view_playlist(),
+			true => self.view_queue(),
 		}
 	}
 
@@ -189,12 +189,12 @@ impl AppState {
 		column![upper_row, pl_scroll].spacing(3).into()
 	}
 
-	fn view_playlist(&self) -> Element<'_, Message> {
+	fn view_queue(&self) -> Element<'_, Message> {
 		let playback_control = self.view_playback_control();
 
 		let playlist_elements = scrollable(Column::from_iter(
 			self.playback_view
-				.list
+				.queue
 				.iter()
 				.enumerate()
 				.map(|(index, item)| {
@@ -351,10 +351,10 @@ impl AppState {
 							.await
 							.map_err(|e| e.to_string())
 					},
-					Message::FetchPlaylist,
+					Message::FetchQueue,
 				)
 			}
-			Message::FetchPlaylist(result) => {
+			Message::FetchQueue(result) => {
 				let items = match result {
 					Ok(i) => i,
 					Err(e) => {
@@ -364,7 +364,7 @@ impl AppState {
 				};
 
 				self.playback_tx
-					.send(PlaybackCommand::LoadPlaylist(items))
+					.send(PlaybackCommand::LoadQueue(items))
 					.unwrap();
 				Task::none()
 			}
@@ -395,7 +395,7 @@ impl AppState {
 				Task::none()
 			}
 			Message::TogglePlaylistView => {
-				self.playlist_scene = !self.playlist_scene;
+				self.queue_scene = !self.queue_scene;
 				Task::none()
 			}
 			Message::SkipNext => {
@@ -441,7 +441,7 @@ impl AppState {
 			}
 			Message::SelectTrack(track) => {
 				self.playback_tx
-					.send(PlaybackCommand::LoadPlaylist(vec![track]))
+					.send(PlaybackCommand::LoadQueue(vec![track]))
 					.unwrap();
 				Task::none()
 			}
@@ -459,18 +459,18 @@ impl AppState {
 			}
 			Message::StartRadio(track) => Task::perform(
 				async move { new_radio(track).await.map_err(|e| e.to_string()) },
-				Message::FetchPlaylist,
+				Message::FetchQueue,
 			),
 			Message::StartPlaylist(items) => {
 				self.playback_tx
-					.send(PlaybackCommand::LoadPlaylist(items))
+					.send(PlaybackCommand::LoadQueue(items))
 					.unwrap();
 				Task::none()
 			}
 			Message::StartShuffle(mut items) => {
 				items.shuffle(&mut rng());
 				self.playback_tx
-					.send(PlaybackCommand::LoadPlaylist(items))
+					.send(PlaybackCommand::LoadQueue(items))
 					.unwrap();
 				Task::none()
 			}
@@ -506,7 +506,7 @@ impl AppState {
 	fn tick(&mut self) -> Task<Message> {
 		while let Ok(event) = self.playback_rx.try_recv() {
 			match event {
-				PlaybackEvent::PlaylistUpdated(view) => {
+				PlaybackEvent::QueueUpdated(view) => {
 					self.playback_view = view;
 					self.most_viewed_view =
 						data::get_most_viewed_amount(MOST_VIEWED_AMOUNT);
@@ -796,7 +796,7 @@ pub enum Message {
 	StartPlaylist(Vec<TrackItem>),
 	StartShuffle(Vec<TrackItem>),
 	CopyText(String),
-	FetchPlaylist(Result<Vec<TrackItem>, String>),
+	FetchQueue(Result<Vec<TrackItem>, String>),
 }
 
 pub fn iced_main() -> iced::Result {

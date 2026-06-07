@@ -14,7 +14,7 @@ use crate::{
 #[derive(Default)]
 pub struct Playback {
 	player: PlayerState,
-	list: Vec<TrackItem>,
+	queue: Vec<TrackItem>,
 	index: Option<usize>,
 	pause: bool,
 	volume: f32,
@@ -24,7 +24,7 @@ impl Playback {
 	pub fn new() -> Self {
 		Self {
 			player: PlayerState::None,
-			list: Vec::new(),
+			queue: Vec::new(),
 			index: None,
 			pause: true,
 			volume: 1.0,
@@ -50,7 +50,7 @@ impl Playback {
 
 		let track_item = self
 			.get_track(index)
-			.expect("Playlist index is greater than list size.")
+			.expect("Queue index is greater than queue size.")
 			.clone();
 
 		self.player = PlayerState::Loading(Player::new(&track_item.id, self.volume));
@@ -69,22 +69,22 @@ impl Playback {
 	}
 
 	pub fn len(&self) -> usize {
-		self.list.len()
+		self.queue.len()
 	}
 
 	pub fn is_empty(&self) -> bool {
 		self.len() == 0
 	}
 
-	pub fn set_list(&mut self, list: Vec<TrackItem>) {
-		self.list = list;
+	pub fn set_queue(&mut self, queue: Vec<TrackItem>) {
+		self.queue = queue;
 		self.index.take();
 		self.player = PlayerState::None;
 		self.pause = false;
 	}
 
 	pub fn push_track(&mut self, track: TrackItem) {
-		self.list.push(track);
+		self.queue.push(track);
 	}
 
 	pub fn seek_forward(&mut self) -> anyhow::Result<()> {
@@ -160,7 +160,7 @@ impl Playback {
 
 	pub fn playback_view(&self) -> PlaybackView {
 		PlaybackView {
-			list: self.list.clone(),
+			queue: self.queue.clone(),
 			index: self.index,
 			player: self.player_view(),
 		}
@@ -177,11 +177,11 @@ impl Playback {
 	}
 
 	pub fn get_track(&self, index: usize) -> Option<&TrackItem> {
-		self.list.get(index)
+		self.queue.get(index)
 	}
 
 	pub fn remove(&mut self, index: usize) {
-		self.list.remove(index);
+		self.queue.remove(index);
 		let Some(ref mut cur) = self.index else {
 			return;
 		};
@@ -196,9 +196,9 @@ impl Playback {
 
 impl Debug for Playback {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		f.debug_struct("Playlist")
+		f.debug_struct("Playback")
 			.field("player", &self.player.get_player().is_some())
-			.field("list", &self.list)
+			.field("queue", &self.queue)
 			.field("index", &self.index)
 			.field("pause", &self.pause)
 			.finish()
@@ -206,7 +206,7 @@ impl Debug for Playback {
 }
 
 pub enum PlaybackCommand {
-	LoadPlaylist(Vec<TrackItem>),
+	LoadQueue(Vec<TrackItem>),
 	TogglePause,
 	SkipNext,
 	SkipPrev,
@@ -220,7 +220,7 @@ pub enum PlaybackCommand {
 }
 
 pub enum PlaybackEvent {
-	PlaylistUpdated(PlaybackView),
+	QueueUpdated(PlaybackView),
 	PlayerUpdated(PlayerView),
 }
 
@@ -257,9 +257,9 @@ pub async fn playback_command(
 	tx: &UnboundedSender<PlaybackEvent>,
 ) {
 	match cmd {
-		PlaybackCommand::LoadPlaylist(list) => {
-			pl.set_list(list);
-			tx.send(PlaybackEvent::PlaylistUpdated(pl.playback_view()))
+		PlaybackCommand::LoadQueue(queue) => {
+			pl.set_queue(queue);
+			tx.send(PlaybackEvent::QueueUpdated(pl.playback_view()))
 				.unwrap();
 		}
 		PlaybackCommand::TogglePause => {
@@ -269,17 +269,17 @@ pub async fn playback_command(
 		}
 		PlaybackCommand::SkipNext => {
 			pl.skip_next();
-			tx.send(PlaybackEvent::PlaylistUpdated(pl.playback_view()))
+			tx.send(PlaybackEvent::QueueUpdated(pl.playback_view()))
 				.unwrap();
 		}
 		PlaybackCommand::SkipPrev => {
 			pl.skip_prev();
-			tx.send(PlaybackEvent::PlaylistUpdated(pl.playback_view()))
+			tx.send(PlaybackEvent::QueueUpdated(pl.playback_view()))
 				.unwrap();
 		}
 		PlaybackCommand::SkipTo(i) => {
 			pl.skip_to(i);
-			tx.send(PlaybackEvent::PlaylistUpdated(pl.playback_view()))
+			tx.send(PlaybackEvent::QueueUpdated(pl.playback_view()))
 				.unwrap();
 		}
 		PlaybackCommand::SeekForward => {
@@ -304,12 +304,12 @@ pub async fn playback_command(
 		}
 		PlaybackCommand::PushTrack(t) => {
 			pl.push_track(t);
-			tx.send(PlaybackEvent::PlaylistUpdated(pl.playback_view()))
+			tx.send(PlaybackEvent::QueueUpdated(pl.playback_view()))
 				.unwrap();
 		}
 		PlaybackCommand::RemoveFromQueue(i) => {
 			pl.remove(i);
-			tx.send(PlaybackEvent::PlaylistUpdated(pl.playback_view()))
+			tx.send(PlaybackEvent::QueueUpdated(pl.playback_view()))
 				.unwrap();
 		}
 	}
@@ -328,7 +328,7 @@ pub async fn playback_idle_tick(pl: &mut Playback, tx: &UnboundedSender<Playback
 		if let Err(e) = e {
 			eprintln!("Error occured during playback: {e}");
 		}
-		tx.send(PlaybackEvent::PlaylistUpdated(pl.playback_view()))
+		tx.send(PlaybackEvent::QueueUpdated(pl.playback_view()))
 			.unwrap();
 	} else {
 		tx.send(PlaybackEvent::PlayerUpdated(pl.player_view()))
@@ -342,7 +342,7 @@ pub fn youtube_link(id: &str) -> String {
 
 #[derive(Debug, Default, Clone)]
 pub struct PlaybackView {
-	pub list: Vec<TrackItem>,
+	pub queue: Vec<TrackItem>,
 	pub index: Option<usize>,
 	pub player: PlayerView,
 }
@@ -350,7 +350,7 @@ pub struct PlaybackView {
 impl PlaybackView {
 	pub fn current_track(&self) -> Option<&TrackItem> {
 		let i = self.index?;
-		self.list.get(i)
+		self.queue.get(i)
 	}
 }
 
