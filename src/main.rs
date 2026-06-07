@@ -7,10 +7,7 @@ mod player;
 mod thumbnail;
 
 use anyhow::Context;
-use rustypipe::{
-	client::RustyPipe,
-	model::{MusicItem, TrackItem},
-};
+use rustypipe::{client::RustyPipe, model::TrackItem};
 use serde::Deserialize;
 
 use crate::gui::iced_main;
@@ -24,17 +21,8 @@ pub async fn search(search_text: &str) -> anyhow::Result<Vec<TrackItem>> {
 	let rp = RustyPipe::new();
 	// Fetch the player
 	let q = rp.query();
-	let sres = q.music_search_main(search_text).await?;
-	let res = sres
-		.items
-		.items
-		.iter()
-		.filter_map(|i| match i {
-			MusicItem::Track(t) => Some(t),
-			_ => None,
-		})
-		.cloned()
-		.collect();
+	let sres = q.music_search_tracks(search_text).await?;
+	let res = sres.items.items;
 	Ok(res)
 }
 
