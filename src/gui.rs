@@ -90,7 +90,7 @@ impl AppState {
 			most_viewed_view: data::get_most_viewed_amount(MOST_VIEWED_AMOUNT),
 			search_view: vec![],
 
-			scene: Scene::MainMenu,
+			scene: Scene::Home,
 			queue_scene: false,
 
 			thumbnail_manager: ThumbnailCache::default(),
@@ -106,21 +106,21 @@ impl AppState {
 	fn view(&self) -> Element<'_, Message> {
 		match self.queue_scene {
 			false => self.scene_boilerplate(match self.scene {
-				Scene::MainMenu => self.view_main_menu(),
+				Scene::Home => self.view_home(),
 				Scene::Search => self.view_search(),
 			}),
 			true => self.view_queue(),
 		}
 	}
 
-	fn view_main_menu(&self) -> Element<'_, Message> {
-		let favorites = self.view_menu_playlist(
+	fn view_home(&self) -> Element<'_, Message> {
+		let favorites = self.view_home_playlist(
 			"Favorites",
 			&self.favorites_view,
 			&self.thumbnail_manager,
 		);
 
-		let most_played = self.view_menu_playlist(
+		let most_played = self.view_home_playlist(
 			"Most Played",
 			&self.most_viewed_view,
 			&self.thumbnail_manager,
@@ -130,11 +130,11 @@ impl AppState {
 			.width(Length::Fill)
 			.height(Length::Fill)
 			.spacing(0)
-			.id("main_menu_scroll")
+			.id("home_scroll")
 			.into()
 	}
 
-	fn view_menu_playlist<'a>(
+	fn view_home_playlist<'a>(
 		&'a self,
 		name: &'a str,
 		playlist: &'a [TrackItem],
@@ -486,7 +486,7 @@ impl AppState {
 			}
 			Message::CopyText(s) => iced::clipboard::write(s),
 			Message::GoHome => {
-				self.scene = Scene::MainMenu;
+				self.scene = Scene::Home;
 				Task::none()
 			}
 			Message::FetchQueue(result) => {
@@ -975,6 +975,6 @@ fn ellipsize(s: &str, max_chars: usize) -> String {
 
 #[derive(Clone, Copy, Debug)]
 enum Scene {
-	MainMenu,
+	Home,
 	Search,
 }
