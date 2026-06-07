@@ -27,7 +27,7 @@ use crate::{
 		MediaMeta, PlaybackCommand, PlaybackEvent, PlaybackView, playback_loop,
 		youtube_link,
 	},
-	search_and_play,
+	search,
 	thumbnail::{ThumbnailCache, ThumbnailSource},
 };
 
@@ -44,6 +44,7 @@ struct AppState {
 	// Favorites list is cloned everytime it is updated to avoid constant locking and lifetime issues.
 	favorites_view: Vec<TrackItem>,
 	most_viewed_view: Vec<TrackItem>,
+	search_view: Vec<TrackItem>,
 
 	scene: Scene,
 	queue_scene: bool,
@@ -87,6 +88,7 @@ impl AppState {
 
 			favorites_view: data::get_favorites().iter().cloned().rev().collect(),
 			most_viewed_view: data::get_most_viewed_amount(MOST_VIEWED_AMOUNT),
+			search_view: vec![],
 
 			scene: Scene::MainMenu,
 			queue_scene: false,
@@ -105,6 +107,7 @@ impl AppState {
 		match self.queue_scene {
 			false => match self.scene {
 				Scene::MainMenu => self.view_main_menu(),
+				Scene::Search => self.view_search(),
 			},
 			true => self.view_queue(),
 		}
@@ -189,10 +192,30 @@ impl AppState {
 		column![upper_row, pl_scroll].spacing(3).into()
 	}
 
+	fn view_search(&self) -> Element<'_, Message> {
+		let search = self.view_search_input();
+		let playback_control = self.view_playback_control();
+
+		let search_elements =
+			scrollable(Column::from_iter(self.search_view.iter().map(|item| {
+				let thumb = self.thumbnail_manager.get(&item.id);
+				self.search_track_card(item, thumb)
+			})))
+			.width(Length::Fill)
+			.height(Length::Fill)
+			.id("search_elements")
+			.spacing(0);
+
+		column![search, search_elements, playback_control,]
+			.width(Length::Fill)
+			.height(Length::Fill)
+			.into()
+	}
+
 	fn view_queue(&self) -> Element<'_, Message> {
 		let playback_control = self.view_playback_control();
 
-		let playlist_elements = scrollable(Column::from_iter(
+		let queue_elements = scrollable(Column::from_iter(
 			self.playback_view
 				.queue
 				.iter()
@@ -211,10 +234,10 @@ impl AppState {
 		))
 		.width(Length::Fill)
 		.height(Length::Fill)
-		.id("playlist_elements")
+		.id("queue_elements")
 		.spacing(0);
 
-		column![playlist_elements, playback_control,]
+		column![queue_elements, playback_control,]
 			.height(Length::Fill)
 			.width(Length::Fill)
 			.into()
@@ -332,8 +355,8 @@ impl AppState {
 	fn view_search_input(&self) -> Element<'_, Message> {
 		let search_input = text_input("Search", &self.search_input)
 			.on_input(Message::SearchEdit)
-			.on_submit(Message::Play);
-		let play_button = button("Play").on_press(Message::Play);
+			.on_submit(Message::Search);
+		let play_button = button("Search").on_press(Message::Search);
 
 		column![search_input, play_button]
 			.spacing(5)
@@ -343,30 +366,12 @@ impl AppState {
 
 	fn update(&mut self, message: Message) -> Task<Message> {
 		match message {
-			Message::Play => {
+			Message::Search => {
 				let arg = self.search_input.clone();
 				Task::perform(
-					async move {
-						search_and_play(&arg)
-							.await
-							.map_err(|e| e.to_string())
-					},
-					Message::FetchQueue,
+					async move { search(&arg).await.map_err(|e| e.to_string()) },
+					Message::FetchSearch,
 				)
-			}
-			Message::FetchQueue(result) => {
-				let items = match result {
-					Ok(i) => i,
-					Err(e) => {
-						eprintln!("Error: {:?}", e);
-						return Task::none();
-					}
-				};
-
-				self.playback_tx
-					.send(PlaybackCommand::LoadQueue(items))
-					.unwrap();
-				Task::none()
 			}
 			Message::SearchEdit(text) => {
 				self.search_input = text;
@@ -475,6 +480,33 @@ impl AppState {
 				Task::none()
 			}
 			Message::CopyText(s) => iced::clipboard::write(s),
+			Message::FetchQueue(result) => {
+				let items = match result {
+					Ok(i) => i,
+					Err(e) => {
+						eprintln!("Error: {:?}", e);
+						return Task::none();
+					}
+				};
+
+				self.playback_tx
+					.send(PlaybackCommand::LoadQueue(items))
+					.unwrap();
+				Task::none()
+			}
+			Message::FetchSearch(result) => {
+				let items = match result {
+					Ok(i) => i,
+					Err(e) => {
+						eprintln!("Error: {:?}", e);
+						return Task::none();
+					}
+				};
+
+				self.search_view = items;
+				self.scene = Scene::Search;
+				Task::none()
+			}
 			Message::Exit => iced::exit(),
 		}
 	}
@@ -716,6 +748,49 @@ impl AppState {
 			.into()
 	}
 
+	fn search_track_card<'a>(
+		&'a self,
+		track: &'a TrackItem,
+		thumb: image::Handle,
+	) -> Element<'a, Message> {
+		let click_msg = Message::SelectTrack(track.clone());
+
+		let thumbnail = sensor(image(thumb)
+			.content_fit(ContentFit::Cover)
+			.height(SMALL_THUMBNAIL_SIZE)
+			.width(SMALL_THUMBNAIL_SIZE))
+		.on_show(|_| Message::ImagePopIn(ThumbnailSource::new(track)))
+		.key_ref(&track.id);
+
+		let name = text(&track.name).size(20);
+
+		let artists = text(track
+			.artists
+			.iter()
+			.map(|a| a.name.as_str())
+			.collect::<Vec<_>>()
+			.join(", "))
+		.size(14)
+		.style(|t: &Theme| text::Style {
+			color: t.extended_palette().background.strong.text.into(),
+		});
+
+		let column = column![name, artists].spacing(6).padding(10);
+		let row = row![thumbnail, column, space().width(Length::Fill),]
+			.spacing(6)
+			.padding(10);
+
+		let card = container(
+			button(row)
+				.on_press(click_msg.clone())
+				.style(transparent_button_style),
+		)
+		.width(Length::Fill)
+		.style(move |t: &Theme| track_card_style(t, false));
+
+		self.track_context_menu(track, card.into())
+	}
+
 	fn track_context_menu<'a>(
 		&'a self,
 		track: &'a TrackItem,
@@ -768,7 +843,7 @@ impl AppState {
 #[derive(Debug, Clone)]
 pub enum Message {
 	Exit,
-	Play,
+	Search,
 	Tick,
 	/// Has a seperate tick than the rest due to being able to process signals only once every second.
 	MediaControlTick,
@@ -797,6 +872,7 @@ pub enum Message {
 	StartShuffle(Vec<TrackItem>),
 	CopyText(String),
 	FetchQueue(Result<Vec<TrackItem>, String>),
+	FetchSearch(Result<Vec<TrackItem>, String>),
 }
 
 pub fn iced_main() -> iced::Result {
@@ -890,4 +966,5 @@ fn ellipsize(s: &str, max_chars: usize) -> String {
 #[derive(Clone, Copy, Debug)]
 enum Scene {
 	MainMenu,
+	Search,
 }

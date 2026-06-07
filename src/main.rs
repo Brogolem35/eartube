@@ -19,23 +19,23 @@ fn main() -> iced::Result {
 	iced_main()
 }
 
-pub async fn search_and_play(search_text: &str) -> anyhow::Result<Vec<TrackItem>> {
+pub async fn search(search_text: &str) -> anyhow::Result<Vec<TrackItem>> {
 	// Create a client
 	let rp = RustyPipe::new();
 	// Fetch the player
 	let q = rp.query();
 	let sres = q.music_search_main(search_text).await?;
-	let item = sres
+	let res = sres
 		.items
 		.items
 		.iter()
-		.find_map(|i| match i {
-			MusicItem::Track(track_item) => Some(track_item),
+		.filter_map(|i| match i {
+			MusicItem::Track(t) => Some(t),
 			_ => None,
 		})
-		.context("No such track found")?;
-
-	new_radio(item.clone()).await
+		.cloned()
+		.collect();
+	Ok(res)
 }
 
 pub async fn new_radio(track: TrackItem) -> anyhow::Result<Vec<TrackItem>> {
