@@ -105,18 +105,15 @@ impl AppState {
 
 	fn view(&self) -> Element<'_, Message> {
 		match self.queue_scene {
-			false => match self.scene {
+			false => self.scene_boilerplate(match self.scene {
 				Scene::MainMenu => self.view_main_menu(),
 				Scene::Search => self.view_search(),
-			},
+			}),
 			true => self.view_queue(),
 		}
 	}
 
 	fn view_main_menu(&self) -> Element<'_, Message> {
-		let search = self.view_search_input();
-		let playback_control = self.view_playback_control();
-
 		let favorites = self.view_menu_playlist(
 			"Favorites",
 			&self.favorites_view,
@@ -129,15 +126,11 @@ impl AppState {
 			&self.thumbnail_manager,
 		);
 
-		let menu_scroll = scrollable(column![favorites, most_played].spacing(5))
+		scrollable(column![favorites, most_played].spacing(5))
 			.width(Length::Fill)
 			.height(Length::Fill)
 			.spacing(0)
-			.id("main_menu_scroll");
-
-		column![search, menu_scroll, playback_control,]
-			.width(Length::Fill)
-			.height(Length::Fill)
+			.id("main_menu_scroll")
 			.into()
 	}
 
@@ -193,23 +186,15 @@ impl AppState {
 	}
 
 	fn view_search(&self) -> Element<'_, Message> {
-		let search = self.view_search_input();
-		let playback_control = self.view_playback_control();
-
-		let search_elements =
-			scrollable(Column::from_iter(self.search_view.iter().map(|item| {
-				let thumb = self.thumbnail_manager.get(&item.id);
-				self.search_track_card(item, thumb)
-			})))
-			.width(Length::Fill)
-			.height(Length::Fill)
-			.id("search_elements")
-			.spacing(0);
-
-		column![search, search_elements, playback_control,]
-			.width(Length::Fill)
-			.height(Length::Fill)
-			.into()
+		scrollable(Column::from_iter(self.search_view.iter().map(|item| {
+			let thumb = self.thumbnail_manager.get(&item.id);
+			self.search_track_card(item, thumb)
+		})))
+		.width(Length::Fill)
+		.height(Length::Fill)
+		.id("search_elements")
+		.spacing(0)
+		.into()
 	}
 
 	fn view_queue(&self) -> Element<'_, Message> {
@@ -362,6 +347,21 @@ impl AppState {
 			.spacing(5)
 			.padding(5)
 			.into()
+	}
+
+	fn view_tabs(&self) -> Element<'_, Message> {
+		column![button("Home"), button("Favorites"), button("History")].into()
+	}
+
+	fn scene_boilerplate<'a>(&'a self, inner: Element<'a, Message>) -> Element<'a, Message> {
+		let search = self.view_search_input();
+		let playback_control = self.view_playback_control();
+
+		let col = column![search, inner]
+			.width(Length::Fill)
+			.height(Length::Fill);
+		let row = row![self.view_tabs(), col];
+		column![row, playback_control].into()
 	}
 
 	fn update(&mut self, message: Message) -> Task<Message> {
