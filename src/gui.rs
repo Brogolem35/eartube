@@ -21,7 +21,7 @@ use souvlaki::{MediaControlEvent, MediaControls};
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 
 use crate::{
-	data::{self, is_favorited, toggle_favorite},
+	data::{self, Playlist, is_favorited, toggle_favorite},
 	icons, new_radio,
 	playback::{
 		MediaMeta, PlaybackCommand, PlaybackEvent, PlaybackView, playback_loop,
@@ -105,9 +105,10 @@ impl AppState {
 
 	fn view(&self) -> Element<'_, Message> {
 		match self.queue_scene {
-			false => self.scene_boilerplate(match self.scene {
+			false => self.scene_boilerplate(match &self.scene {
 				Scene::Home => self.view_home(),
 				Scene::Search => self.view_search(),
+				Scene::Playlist(p) => self.view_playlist(p),
 			}),
 			true => self.view_queue(),
 		}
@@ -226,6 +227,18 @@ impl AppState {
 			.height(Length::Fill)
 			.width(Length::Fill)
 			.into()
+	}
+
+	fn view_playlist<'a>(&'a self, playlist: &'a Playlist) -> Element<'a, Message> {
+		scrollable(Column::from_iter(playlist.tracks.iter().map(|item| {
+			let thumb = self.thumbnail_manager.get(&item.id);
+			self.search_track_card(item, thumb)
+		})))
+		.width(Length::Fill)
+		.height(Length::Fill)
+		.id("playlist_elements")
+		.spacing(0)
+		.into()
 	}
 
 	fn view_playback_control(&self) -> Column<'_, Message> {
@@ -352,7 +365,10 @@ impl AppState {
 	fn view_tabs(&self) -> Element<'_, Message> {
 		column![
 			button("Home").on_press(Message::GoHome),
-			button("Favorites"),
+			button("Favorites").on_press(Message::GoPlaylist(Playlist::from_vec(
+				"Favorites",
+				self.favorites_view.clone()
+			))),
 			button("History")
 		]
 		.into()
@@ -487,6 +503,10 @@ impl AppState {
 			Message::CopyText(s) => iced::clipboard::write(s),
 			Message::GoHome => {
 				self.scene = Scene::Home;
+				Task::none()
+			}
+			Message::GoPlaylist(p) => {
+				self.scene = Scene::Playlist(p);
 				Task::none()
 			}
 			Message::FetchQueue(result) => {
@@ -881,6 +901,7 @@ pub enum Message {
 	StartShuffle(Vec<TrackItem>),
 	CopyText(String),
 	GoHome,
+	GoPlaylist(Playlist),
 	FetchQueue(Result<Vec<TrackItem>, String>),
 	FetchSearch(Result<Vec<TrackItem>, String>),
 }
@@ -973,8 +994,9 @@ fn ellipsize(s: &str, max_chars: usize) -> String {
 	out
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 enum Scene {
 	Home,
 	Search,
+	Playlist(Playlist),
 }

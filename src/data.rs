@@ -201,10 +201,26 @@ impl TrackStat {
 	}
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Playlist {
-	name: String,
-	tracks: Vec<TrackItem>,
+	pub name: String,
+	pub tracks: Vec<TrackItem>,
+}
+
+impl Playlist {
+	pub fn new(name: &str) -> Self {
+		Self {
+			name: name.to_owned(),
+			tracks: vec![],
+		}
+	}
+
+	pub fn from_vec(name: &str, list: Vec<TrackItem>) -> Self {
+		Self {
+			name: name.to_owned(),
+			tracks: list,
+		}
+	}
 }
 
 pub fn data_dir() -> PathBuf {
