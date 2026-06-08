@@ -94,11 +94,21 @@ pub fn get_most_viewed_amount(amount: usize) -> Vec<TrackItem> {
 }
 
 pub fn get_history() -> Vec<TrackItem> {
-	TRACK_STATS
-		.iter()
-		.sorted_by_key(|v| Reverse(v.last_viewed))
-		.map(|i| i.value().track.clone())
-		.collect()
+	let timer = iced::debug::time("History Recent Sort");
+	let iter = TRACK_STATS.iter();
+	let mut view_times: Vec<Reverse<UnixTime>> = Vec::with_capacity(TRACK_STATS.len());
+	let mut tracks: Vec<TrackItem> = Vec::with_capacity(TRACK_STATS.len());
+
+	for i in iter {
+		let pos = view_times
+			.binary_search(&Reverse(i.last_viewed))
+			.unwrap_or_else(|e| e);
+		view_times.insert(pos, Reverse(i.last_viewed));
+		tracks.insert(pos, i.track.clone());
+	}
+
+	timer.finish();
+	tracks
 }
 
 static FAVORITES: LazyLock<RwLock<Vec<TrackItem>>> =
