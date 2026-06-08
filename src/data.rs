@@ -1,4 +1,5 @@
 use std::{
+	cmp::Reverse,
 	fs,
 	path::PathBuf,
 	sync::LazyLock,
@@ -88,6 +89,14 @@ pub fn get_most_viewed_amount(amount: usize) -> Vec<TrackItem> {
 	TRACK_STATS
 		.iter()
 		.k_largest_by_key(amount, |v| (v.views, v.last_viewed))
+		.map(|i| i.value().track.clone())
+		.collect()
+}
+
+pub fn get_history() -> Vec<TrackItem> {
+	TRACK_STATS
+		.iter()
+		.sorted_by_key(|v| Reverse(v.last_viewed))
 		.map(|i| i.value().track.clone())
 		.collect()
 }

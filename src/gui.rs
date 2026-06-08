@@ -369,7 +369,10 @@ impl AppState {
 				"Favorites",
 				self.favorites_view.clone()
 			))),
-			button("History")
+			button("History").on_press(Message::GoPlaylist(Playlist::from_vec(
+				"History",
+				data::get_history()
+			)))
 		]
 		.into()
 	}
