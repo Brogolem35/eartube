@@ -365,14 +365,8 @@ impl AppState {
 	fn view_tabs(&self) -> Element<'_, Message> {
 		column![
 			button("Home").on_press(Message::GoHome),
-			button("Favorites").on_press(Message::GoPlaylist(Playlist::from_vec(
-				"Favorites",
-				self.favorites_view.clone()
-			))),
-			button("History").on_press(Message::GoPlaylist(Playlist::from_vec(
-				"History",
-				data::get_history()
-			)))
+			button("Favorites").on_press(Message::GoFavorites),
+			button("History").on_press(Message::GoHistory)
 		]
 		.into()
 	}
@@ -510,6 +504,20 @@ impl AppState {
 			}
 			Message::GoPlaylist(p) => {
 				self.scene = Scene::Playlist(p);
+				Task::none()
+			}
+			Message::GoFavorites => {
+				self.scene = Scene::Playlist(Playlist::from_vec(
+					"Favorites",
+					self.favorites_view.clone(),
+				));
+				Task::none()
+			}
+			Message::GoHistory => {
+				self.scene = Scene::Playlist(Playlist::from_vec(
+					"Favorites",
+					data::get_history(),
+				));
 				Task::none()
 			}
 			Message::FetchQueue(result) => {
@@ -905,6 +913,8 @@ pub enum Message {
 	CopyText(String),
 	GoHome,
 	GoPlaylist(Playlist),
+	GoFavorites,
+	GoHistory,
 	FetchQueue(Result<Vec<TrackItem>, String>),
 	FetchSearch(Result<Vec<TrackItem>, String>),
 }
