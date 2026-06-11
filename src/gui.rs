@@ -718,8 +718,6 @@ impl AppState {
 		track: &'a TrackItem,
 		thumb: image::Handle,
 	) -> Element<'a, Message> {
-		let click_msg = Message::SelectTrack(track.clone());
-
 		let thumbnail = sensor(image(thumb)
 			.content_fit(ContentFit::Cover)
 			.height(200)
@@ -746,7 +744,7 @@ impl AppState {
 
 		let card = container(
 			button(column)
-				.on_press(click_msg.clone())
+				.on_press_with(move || Message::SelectTrack(track.clone()))
 				.style(transparent_button_style),
 		)
 		.width(Length::Fill)
@@ -793,8 +791,6 @@ impl AppState {
 		track: &'a TrackItem,
 		thumb: image::Handle,
 	) -> Element<'a, Message> {
-		let click_msg = Message::SelectTrack(track.clone());
-
 		let thumbnail = sensor(image(thumb)
 			.content_fit(ContentFit::Cover)
 			.height(SMALL_THUMBNAIL_SIZE)
@@ -822,7 +818,7 @@ impl AppState {
 
 		let card = container(
 			button(row)
-				.on_press(click_msg.clone())
+				.on_press_with(move || Message::SelectTrack(track.clone()))
 				.style(transparent_button_style),
 		)
 		.width(Length::Fill)
@@ -836,12 +832,6 @@ impl AppState {
 		track: &'a TrackItem,
 		inner: Element<'a, Message>,
 	) -> Element<'a, Message> {
-		let play_msg = Message::SelectTrack(track.clone());
-		let queue_msg = Message::AddToQueue(track.clone());
-		let radio_msg = Message::StartRadio(track.clone());
-		let fav_msg = Message::ToggleFavorite(track.clone());
-		let copy_msg = Message::CopyText(youtube_link(&track.id));
-
 		let fav_text = if !is_favorited(&track.id) {
 			"Favorite"
 		} else {
@@ -851,22 +841,24 @@ impl AppState {
 		ContextMenu::new(inner, move || {
 			column![
 				button("Play")
-					.on_press(play_msg.clone())
+					.on_press_with(|| Message::SelectTrack(track.clone()))
 					.width(Length::Fill)
 					.style(context_button_style),
 				button("Add to queue")
-					.on_press(queue_msg.clone())
+					.on_press_with(|| Message::AddToQueue(track.clone()))
 					.style(context_button_style),
 				button("Start radio")
-					.on_press(radio_msg.clone())
+					.on_press_with(|| Message::StartRadio(track.clone()))
 					.width(Length::Fill)
 					.style(context_button_style),
 				button(fav_text)
-					.on_press(fav_msg.clone())
+					.on_press_with(|| Message::ToggleFavorite(track.clone()))
 					.width(Length::Fill)
 					.style(context_button_style),
 				button("Copy link")
-					.on_press(copy_msg.clone())
+					.on_press_with(|| Message::CopyText(youtube_link(
+						&track.id
+					)))
 					.width(Length::Fill)
 					.style(context_button_style),
 			]
