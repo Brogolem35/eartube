@@ -108,7 +108,11 @@ impl AppState {
 			false => self.scene_boilerplate(match &self.scene {
 				Scene::Home => self.view_home(),
 				Scene::Search => self.view_search(),
-				Scene::Playlist(p) => self.view_playlist(p),
+				Scene::Favorites => {
+					self.view_playlist("Favorites", &self.favorites_view)
+				}
+				Scene::History(h) => self.view_playlist("History", h),
+				Scene::Playlist(p) => self.view_playlist(&p.name, &p.tracks),
 			}),
 			true => self.view_queue(),
 		}
@@ -229,8 +233,12 @@ impl AppState {
 			.into()
 	}
 
-	fn view_playlist<'a>(&'a self, playlist: &'a Playlist) -> Element<'a, Message> {
-		scrollable(Column::from_iter(playlist.tracks.iter().map(|item| {
+	fn view_playlist<'a>(
+		&'a self,
+		name: &'a str,
+		tracks: &'a [TrackItem],
+	) -> Element<'a, Message> {
+		scrollable(Column::from_iter(tracks.iter().map(|item| {
 			let thumb = self.thumbnail_manager.get(&item.id);
 			self.search_track_card(item, thumb)
 		})))
@@ -507,17 +515,11 @@ impl AppState {
 				Task::none()
 			}
 			Message::GoFavorites => {
-				self.scene = Scene::Playlist(Playlist::from_vec(
-					"Favorites",
-					self.favorites_view.clone(),
-				));
+				self.scene = Scene::Favorites;
 				Task::none()
 			}
 			Message::GoHistory => {
-				self.scene = Scene::Playlist(Playlist::from_vec(
-					"Favorites",
-					data::get_history(),
-				));
+				self.scene = Scene::History(data::get_history());
 				Task::none()
 			}
 			Message::FetchQueue(result) => {
@@ -582,6 +584,13 @@ impl AppState {
 					self.playback_view = view;
 					self.most_viewed_view =
 						data::get_most_viewed_amount(MOST_VIEWED_AMOUNT);
+					match &self.scene {
+						Scene::History(_) => {
+							self.scene =
+								Scene::History(data::get_history())
+						}
+						_ => {}
+					};
 					let meta = MediaMeta::from(&self.playback_view);
 					if let Some(ref mut mc) = self.media_controls {
 						let _ = mc.set_metadata(meta.metadata);
@@ -1003,5 +1012,7 @@ fn ellipsize(s: &str, max_chars: usize) -> String {
 enum Scene {
 	Home,
 	Search,
+	Favorites,
+	History(Vec<TrackItem>),
 	Playlist(Playlist),
 }
