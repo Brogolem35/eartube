@@ -149,7 +149,7 @@ impl AppState {
 			.align_y(Vertical::Center)
 			.spacing(2);
 		let play_button = button(play_row)
-			.on_press(Message::StartPlaylist(playlist.to_owned()))
+			.on_press_with(|| Message::StartPlaylist(playlist.to_owned()))
 			.style(transparent_button_style)
 			.padding(5);
 
@@ -159,7 +159,7 @@ impl AppState {
 			.align_y(Vertical::Center)
 			.spacing(2);
 		let shuffle_button = button(shuffle_row)
-			.on_press(Message::StartShuffle(playlist.to_owned()))
+			.on_press_with(|| Message::StartShuffle(playlist.to_owned()))
 			.style(transparent_button_style)
 			.padding(5);
 
