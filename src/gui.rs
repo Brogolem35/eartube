@@ -372,10 +372,19 @@ impl AppState {
 
 	fn view_tabs(&self) -> Element<'_, Message> {
 		column![
-			button("Home").on_press(Message::GoHome),
-			button("Favorites").on_press(Message::GoFavorites),
-			button("History").on_press(Message::GoHistory)
+			button("Home")
+				.on_press(Message::GoHome)
+				.style(transparent_button_style)
+				.width(Length::Fill),
+			button("Favorites")
+				.on_press(Message::GoFavorites)
+				.style(transparent_button_style),
+			button("History")
+				.on_press(Message::GoHistory)
+				.style(transparent_button_style)
+				.width(Length::Fill)
 		]
+		.width(Length::Shrink)
 		.into()
 	}
 
@@ -383,11 +392,23 @@ impl AppState {
 		let search = self.view_search_input();
 		let playback_control = self.view_playback_control();
 
-		let col = column![search, inner]
-			.width(Length::Fill)
-			.height(Length::Fill);
-		let row = row![self.view_tabs(), col];
-		column![row, playback_control].into()
+		let sep_style = |t: &Theme| container::Style {
+			background: Some(t.extended_palette().background.weak.color.into()),
+			..Default::default()
+		};
+		let vertical_sep = container("").height(Length::Fill).width(1).style(sep_style);
+		let horizontal_sep1 = container("").height(1).width(Length::Fill).style(sep_style);
+		let horizontal_sep2 = container("").height(1).width(Length::Fill).style(sep_style);
+
+		let row = row![self.view_tabs(), vertical_sep, inner].spacing(1);
+		column![
+			search,
+			horizontal_sep1,
+			row,
+			horizontal_sep2,
+			playback_control
+		]
+		.into()
 	}
 
 	fn update(&mut self, message: Message) -> Task<Message> {
