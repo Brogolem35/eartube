@@ -238,15 +238,47 @@ impl AppState {
 		name: &'a str,
 		tracks: &'a [TrackItem],
 	) -> Element<'a, Message> {
-		scrollable(Column::from_iter(tracks.iter().map(|item| {
+		let title = text(name).size(18).color(Color::WHITE);
+
+		let play_icon = svg(svg::Handle::from_memory(icons::PLAY)).width(18);
+		let play_text = text("Play");
+		let play_row = row![play_icon, play_text]
+			.align_y(Vertical::Center)
+			.spacing(2);
+		let play_button = button(play_row)
+			.on_press_with(|| Message::StartPlaylist(tracks.to_owned()))
+			.style(transparent_button_style)
+			.padding(5);
+
+		let shuffle_icon = svg(svg::Handle::from_memory(icons::SHUFFLE)).width(18);
+		let shuffle_text = text("Shuffle");
+		let shuffle_row = row![shuffle_icon, shuffle_text]
+			.align_y(Vertical::Center)
+			.spacing(2);
+		let shuffle_button = button(shuffle_row)
+			.on_press_with(|| Message::StartShuffle(tracks.to_owned()))
+			.style(transparent_button_style)
+			.padding(5);
+
+		let upper_row = row![
+			title,
+			play_button,
+			shuffle_button,
+			space().width(Length::Fill)
+		]
+		.align_y(Vertical::Center)
+		.spacing(10);
+
+		let pl_scroll = scrollable(Column::from_iter(tracks.iter().map(|item| {
 			let thumb = self.thumbnail_manager.get(&item.id);
 			self.search_track_card(item, thumb)
 		})))
 		.width(Length::Fill)
 		.height(Length::Fill)
 		.id("playlist_elements")
-		.spacing(0)
-		.into()
+		.spacing(0);
+
+		column![upper_row, pl_scroll].spacing(3).into()
 	}
 
 	fn view_playback_control(&self) -> Column<'_, Message> {
