@@ -1,14 +1,28 @@
 use anyhow::Context;
 use rustypipe::{client::RustyPipe, model::TrackItem};
 use serde::Deserialize;
+use tokio::join;
 
-pub async fn search(search_text: &str) -> anyhow::Result<Vec<TrackItem>> {
+#[derive(Clone, Debug, Default)]
+pub struct YtSearch {
+	pub tracks: Vec<TrackItem>,
+	pub videos: Vec<TrackItem>,
+}
+
+pub async fn search(search_text: &str) -> anyhow::Result<YtSearch> {
 	// Create a client
 	let rp = RustyPipe::new();
 	// Fetch the player
 	let q = rp.query();
-	let sres = q.music_search_tracks(search_text).await?;
-	let res = sres.items.items;
+	let (tracks, videos) = join!(
+		q.music_search_tracks(search_text),
+		q.music_search_videos(search_text)
+	);
+
+	let res = YtSearch {
+		tracks: tracks?.items.items,
+		videos: videos?.items.items,
+	};
 	Ok(res)
 }
 

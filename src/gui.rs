@@ -14,7 +14,7 @@ use iced::{
 	},
 	window,
 };
-use iced_aw::{ContextMenu, context_menu, style::colors};
+use iced_aw::{ContextMenu, Tabs, context_menu, style::colors};
 use rand::{rng, seq::SliceRandom};
 use rustypipe::model::TrackItem;
 use souvlaki::{MediaControlEvent, MediaControls};
@@ -25,7 +25,7 @@ use crate::{
 	icons,
 	playback::{MediaMeta, PlaybackCommand, PlaybackEvent, PlaybackView, playback_loop},
 	thumbnail::{ThumbnailCache, ThumbnailSource},
-	yt::{new_radio, search, youtube_link},
+	yt::{YtSearch, new_radio, search, youtube_link},
 };
 
 const SMALL_THUMBNAIL_SIZE: u32 = 80;
@@ -41,7 +41,7 @@ struct AppState {
 	// Favorites list is cloned everytime it is updated to avoid constant locking and lifetime issues.
 	favorites_view: Vec<TrackItem>,
 	most_viewed_view: Vec<TrackItem>,
-	search_view: Vec<TrackItem>,
+	search_view: YtSearch,
 
 	scene: Scene,
 	queue_scene: bool,
@@ -85,7 +85,7 @@ impl AppState {
 
 			favorites_view: data::get_favorites().iter().cloned().rev().collect(),
 			most_viewed_view: data::get_most_viewed_amount(MOST_VIEWED_AMOUNT),
-			search_view: vec![],
+			search_view: YtSearch::default(),
 
 			scene: Scene::Home,
 			queue_scene: false,
@@ -104,7 +104,7 @@ impl AppState {
 		match self.queue_scene {
 			false => self.scene_boilerplate(match &self.scene {
 				Scene::Home => self.view_home(),
-				Scene::Search => self.view_search(),
+				Scene::Search(tab) => self.view_search(*tab),
 				Scene::Favorites => {
 					self.view_playlist("Favorites", &self.favorites_view)
 				}
@@ -187,16 +187,34 @@ impl AppState {
 		column![upper_row, pl_scroll].spacing(3).into()
 	}
 
-	fn view_search(&self) -> Element<'_, Message> {
-		scrollable(Column::from_iter(self.search_view.iter().map(|item| {
-			let thumb = self.thumbnail_manager.get(&item.id);
-			self.search_track_card(item, thumb)
-		})))
+	fn view_search(&self, active_tab: SearchTab) -> Element<'_, Message> {
+		let tracks = scrollable(Column::from_iter(self.search_view.tracks.iter().map(
+			|item| {
+				let thumb = self.thumbnail_manager.get(&item.id);
+				self.search_track_card(item, thumb)
+			},
+		)))
 		.width(Length::Fill)
 		.height(Length::Fill)
 		.id("search_elements")
-		.spacing(0)
-		.into()
+		.spacing(0);
+
+		let videos = scrollable(Column::from_iter(self.search_view.videos.iter().map(
+			|item| {
+				let thumb = self.thumbnail_manager.get(&item.id);
+				self.search_track_card(item, thumb)
+			},
+		)))
+		.width(Length::Fill)
+		.height(Length::Fill)
+		.id("search_elements")
+		.spacing(0);
+
+		Tabs::new(Message::SearchTabSelected)
+			.push(SearchTab::Tracks, "Tracks".into(), tracks)
+			.push(SearchTab::Videos, "Videos".into(), videos)
+			.set_active_tab(&active_tab)
+			.into()
 	}
 
 	fn view_queue(&self) -> Element<'_, Message> {
@@ -572,6 +590,13 @@ impl AppState {
 				self.scene = Scene::History(data::get_history());
 				Task::none()
 			}
+			Message::SearchTabSelected(search_tab) => {
+				if let Scene::Search(_) = self.scene {
+					self.scene = Scene::Search(search_tab);
+				}
+
+				Task::none()
+			}
 			Message::FetchQueue(result) => {
 				let items = match result {
 					Ok(i) => i,
@@ -596,7 +621,7 @@ impl AppState {
 				};
 
 				self.search_view = items;
-				self.scene = Scene::Search;
+				self.scene = Scene::Search(SearchTab::Tracks);
 				Task::none()
 			}
 			Message::Exit => iced::exit(),
@@ -966,8 +991,9 @@ pub enum Message {
 	GoPlaylist(Playlist),
 	GoFavorites,
 	GoHistory,
+	SearchTabSelected(SearchTab),
 	FetchQueue(Result<Vec<TrackItem>, String>),
-	FetchSearch(Result<Vec<TrackItem>, String>),
+	FetchSearch(Result<YtSearch, String>),
 }
 
 pub fn iced_main() -> iced::Result {
@@ -1061,8 +1087,14 @@ fn ellipsize(s: &str, max_chars: usize) -> String {
 #[derive(Clone, Debug)]
 enum Scene {
 	Home,
-	Search,
+	Search(SearchTab),
 	Favorites,
 	History(Vec<TrackItem>),
 	Playlist(Playlist),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SearchTab {
+	Tracks,
+	Videos,
 }
