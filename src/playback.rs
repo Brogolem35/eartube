@@ -336,10 +336,6 @@ pub async fn playback_idle_tick(pl: &mut Playback, tx: &UnboundedSender<Playback
 	}
 }
 
-pub fn youtube_link(id: &str) -> String {
-	format!("https://music.youtube.com/watch?v={}", id)
-}
-
 #[derive(Debug, Default, Clone)]
 pub struct PlaybackView {
 	pub queue: Vec<TrackItem>,

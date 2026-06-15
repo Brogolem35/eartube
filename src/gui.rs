@@ -22,13 +22,10 @@ use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 
 use crate::{
 	data::{self, Playlist, is_favorited, toggle_favorite},
-	icons, new_radio,
-	playback::{
-		MediaMeta, PlaybackCommand, PlaybackEvent, PlaybackView, playback_loop,
-		youtube_link,
-	},
-	search,
+	icons,
+	playback::{MediaMeta, PlaybackCommand, PlaybackEvent, PlaybackView, playback_loop},
 	thumbnail::{ThumbnailCache, ThumbnailSource},
+	yt::{new_radio, search, youtube_link},
 };
 
 const SMALL_THUMBNAIL_SIZE: u32 = 80;

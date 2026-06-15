@@ -8,8 +8,7 @@ use stream_download::{Settings, StreamDownload, storage::temp::TempStorageProvid
 
 use crate::{
 	data::{audio_cache_dir, is_favorited},
-	get_stream_url,
-	playback::youtube_link,
+	yt::{get_stream_url, youtube_link},
 };
 
 static DOWNLOADING: LazyLock<DashSet<String>> = LazyLock::new(DashSet::new);
