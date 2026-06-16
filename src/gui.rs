@@ -573,6 +573,11 @@ impl AppState {
 					.unwrap();
 				Task::none()
 			}
+			Message::RemoveFromHistory(id) => {
+				data::remove_from_history(&id);
+				self.update_history_views();
+				Task::none()
+			}
 			Message::CopyText(s) => iced::clipboard::write(s),
 			Message::GoHome => {
 				self.scene = Scene::Home;
@@ -657,15 +662,7 @@ impl AppState {
 			match event {
 				PlaybackEvent::QueueUpdated(view) => {
 					self.playback_view = view;
-					self.most_viewed_view =
-						data::get_most_viewed_amount(MOST_VIEWED_AMOUNT);
-					match &self.scene {
-						Scene::History(_) => {
-							self.scene =
-								Scene::History(data::get_history())
-						}
-						_ => {}
-					};
+					self.update_history_views();
 					let meta = MediaMeta::from(&self.playback_view);
 					if let Some(ref mut mc) = self.media_controls {
 						let _ = mc.set_metadata(meta.metadata);
@@ -705,6 +702,13 @@ impl AppState {
 		}
 
 		Task::none()
+	}
+
+	fn update_history_views(&mut self) {
+		self.most_viewed_view = data::get_most_viewed_amount(MOST_VIEWED_AMOUNT);
+		if let Scene::History(_) = self.scene {
+			self.scene = Scene::History(data::get_history());
+		};
 	}
 
 	fn theme(&self) -> Option<Theme> {
@@ -930,6 +934,7 @@ impl AppState {
 					.style(context_button_style),
 				button("Add to queue")
 					.on_press_with(|| Message::AddToQueue(track.clone()))
+					.width(Length::Fill)
 					.style(context_button_style),
 				button("Start radio")
 					.on_press_with(|| Message::StartRadio(track.clone()))
@@ -944,6 +949,11 @@ impl AppState {
 						&track.id
 					)))
 					.width(Length::Fill)
+					.style(context_button_style),
+				button("Remove from history")
+					.on_press_with(|| Message::RemoveFromHistory(
+						track.id.to_owned()
+					))
 					.style(context_button_style),
 			]
 			.width(Length::Shrink)
@@ -986,6 +996,7 @@ pub enum Message {
 	StartRadio(TrackItem),
 	StartPlaylist(Vec<TrackItem>),
 	StartShuffle(Vec<TrackItem>),
+	RemoveFromHistory(String),
 	CopyText(String),
 	GoHome,
 	GoPlaylist(Playlist),

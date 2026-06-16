@@ -111,6 +111,11 @@ pub fn get_history() -> Vec<TrackItem> {
 	tracks
 }
 
+pub fn remove_from_history(id: &str) {
+	TRACK_STATS.remove(id);
+	save_track_stats();
+}
+
 static FAVORITES: LazyLock<RwLock<Vec<TrackItem>>> =
 	LazyLock::new(|| RwLock::new(load_favorites()));
 
