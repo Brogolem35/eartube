@@ -15,6 +15,7 @@ use iced::{
 	window,
 };
 use iced_aw::{ContextMenu, Tabs, context_menu, style::colors};
+use itertools::Itertools;
 use rand::{rng, seq::SliceRandom};
 use rustypipe::model::TrackItem;
 use souvlaki::{MediaControlEvent, MediaControls};
@@ -751,6 +752,7 @@ impl AppState {
 		self.favorites_view.iter().any(|t| t.id == id)
 	}
 
+	#[allow(unstable_name_collisions)]
 	fn track_card<'a>(
 		&'a self,
 		track: &'a TrackItem,
@@ -771,8 +773,8 @@ impl AppState {
 			.artists
 			.iter()
 			.map(|a| a.name.as_str())
-			.collect::<Vec<_>>()
-			.join(", "))
+			.intersperse(", ")
+			.collect::<String>())
 		.size(14)
 		.style(|t: &Theme| text::Style {
 			color: t.extended_palette().background.strong.text.into(),
@@ -801,6 +803,7 @@ impl AppState {
 		.into()
 	}
 
+	#[allow(unstable_name_collisions)]
 	fn favorite_track_card<'a>(
 		&'a self,
 		track: &'a TrackItem,
@@ -819,8 +822,8 @@ impl AppState {
 			&track.artists
 				.iter()
 				.map(|a| a.name.as_str())
-				.collect::<Vec<_>>()
-				.join(", "),
+				.intersperse(", ")
+				.collect::<String>(),
 			20,
 		))
 		.size(14)
@@ -841,6 +844,7 @@ impl AppState {
 		self.track_context_menu(track, card.into())
 	}
 
+	#[allow(unstable_name_collisions)]
 	fn controls_track_card<'a>(
 		&'a self,
 		track: &'a TrackItem,
@@ -859,8 +863,8 @@ impl AppState {
 			.artists
 			.iter()
 			.map(|a| a.name.as_str())
-			.collect::<Vec<_>>()
-			.join(", "))
+			.intersperse(", ")
+			.collect::<String>())
 		.size(14)
 		.style(|t: &Theme| text::Style {
 			color: t.extended_palette().background.strong.text.into(),
@@ -874,6 +878,7 @@ impl AppState {
 			.into()
 	}
 
+	#[allow(unstable_name_collisions)]
 	fn search_track_card<'a>(
 		&'a self,
 		track: &'a TrackItem,
@@ -892,8 +897,8 @@ impl AppState {
 			.artists
 			.iter()
 			.map(|a| a.name.as_str())
-			.collect::<Vec<_>>()
-			.join(", "))
+			.intersperse(", ")
+			.collect::<String>())
 		.size(14)
 		.style(|t: &Theme| text::Style {
 			color: t.extended_palette().background.strong.text.into(),
