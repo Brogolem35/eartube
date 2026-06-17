@@ -255,6 +255,10 @@ pub fn data_dir() -> PathBuf {
 	dirs::data_local_dir().expect("Unsupported OS").join(name)
 }
 
+pub fn reporter_dir() -> PathBuf {
+	data_dir().join("rustypipe_reports")
+}
+
 pub fn cache_dir() -> PathBuf {
 	data_dir().join("cache")
 }

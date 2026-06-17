@@ -1,7 +1,19 @@
+use std::sync::LazyLock;
+
 use anyhow::Context;
-use rustypipe::{client::RustyPipe, model::TrackItem};
+use rustypipe::{client::RustyPipe, model::TrackItem, report::FileReporter};
 use serde::Deserialize;
 use tokio::join;
+
+use crate::data;
+
+static RP_CLIENT: LazyLock<RustyPipe> = LazyLock::new(|| {
+	RustyPipe::builder()
+		.storage_dir(data::cache_dir())
+		.reporter(Box::new(FileReporter::new(data::reporter_dir())))
+		.build()
+		.unwrap()
+});
 
 #[derive(Clone, Debug, Default)]
 pub struct YtSearch {
@@ -10,10 +22,7 @@ pub struct YtSearch {
 }
 
 pub async fn search(search_text: &str) -> anyhow::Result<YtSearch> {
-	// Create a client
-	let rp = RustyPipe::new();
-	// Fetch the player
-	let q = rp.query();
+	let q = RP_CLIENT.query();
 	let (tracks, videos) = join!(
 		q.music_search_tracks(search_text),
 		q.music_search_videos(search_text)
@@ -27,10 +36,7 @@ pub async fn search(search_text: &str) -> anyhow::Result<YtSearch> {
 }
 
 pub async fn new_radio(track: TrackItem) -> anyhow::Result<Vec<TrackItem>> {
-	// Create a client
-	let rp = RustyPipe::new();
-	// Fetch the player
-	let q = rp.query();
+	let q = RP_CLIENT.query();
 	let mut radio = q.music_radio_track(&track.id).await?.items;
 	radio.insert(0, track);
 
