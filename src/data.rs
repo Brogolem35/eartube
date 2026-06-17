@@ -248,11 +248,9 @@ impl Playlist {
 }
 
 pub fn data_dir() -> PathBuf {
-	let name = match cfg!(debug_assertions) {
-		true => "eartube-debug",
-		false => "eartube",
-	};
-	dirs::data_local_dir().expect("Unsupported OS").join(name)
+	dirs::data_local_dir()
+		.expect("Unsupported OS")
+		.join(dir_name())
 }
 
 pub fn reporter_dir() -> PathBuf {
@@ -260,7 +258,7 @@ pub fn reporter_dir() -> PathBuf {
 }
 
 pub fn cache_dir() -> PathBuf {
-	data_dir().join("cache")
+	dirs::cache_dir().expect("Unsupported OS").join(dir_name())
 }
 
 pub fn img_cache_dir() -> PathBuf {
@@ -269,6 +267,13 @@ pub fn img_cache_dir() -> PathBuf {
 
 pub fn audio_cache_dir() -> PathBuf {
 	cache_dir().join("audio")
+}
+
+pub fn dir_name() -> &'static str {
+	match cfg!(debug_assertions) {
+		true => "eartube-debug",
+		false => "eartube",
+	}
 }
 
 pub type UnixTime = u64;
