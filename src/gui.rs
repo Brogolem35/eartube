@@ -22,7 +22,7 @@ use souvlaki::{MediaControlEvent, MediaControls};
 use tokio::sync::mpsc::{self, UnboundedReceiver, UnboundedSender};
 
 use crate::{
-	data::{self, Playlist, is_favorited, toggle_favorite},
+	data::{self, Playlist, toggle_favorite},
 	icons,
 	playback::{MediaMeta, PlaybackCommand, PlaybackEvent, PlaybackView, playback_loop},
 	thumbnail::{ThumbnailCache, ThumbnailSource},
@@ -925,10 +925,9 @@ impl AppState {
 		track: &'a TrackItem,
 		inner: Element<'a, Message>,
 	) -> Element<'a, Message> {
-		let fav_text = if !is_favorited(&track.id) {
-			"Favorite"
-		} else {
-			"Unfavorite"
+		let fav_text = match self.is_favorited(&track.id) {
+			false => "Favorite",
+			true => "Unfavorite",
 		};
 
 		ContextMenu::new(inner, move || {
