@@ -492,6 +492,7 @@ impl AppState {
 			}
 			Message::TogglePause => {
 				self.playback_tx.send(PlaybackCommand::TogglePause).unwrap();
+				self.playback_view.player.pause = !self.playback_view.player.pause;
 				Task::none()
 			}
 			Message::TogglePlaylistView => {
@@ -519,6 +520,7 @@ impl AppState {
 					return Task::none();
 				};
 				self.playback_tx.send(PlaybackCommand::Seek(pos)).unwrap();
+				self.playback_view.player.pos = pos;
 
 				Task::none()
 			}
