@@ -174,16 +174,26 @@ impl AppState {
 		.align_y(Vertical::Center)
 		.spacing(10);
 
-		let pl_scroll = scrollable(
+		let meat: Element<'_, Message> = if playlist.len() == 0 {
+			text("List is empty")
+				.align_y(Vertical::Center)
+				.align_x(Horizontal::Center)
+				.height(240)
+				.style(|t: &Theme| text::Style {
+					color: Some(t.extended_palette().background.strong.text),
+				})
+				.into()
+		} else {
 			row(playlist.iter().map(|item| {
 				let thumb = thumb_manager.get(&item.id);
 				self.favorite_track_card(item, thumb)
 			}))
 			.spacing(2)
-			.padding(Padding::new(0.0).horizontal(3)),
-		)
-		.horizontal()
-		.spacing(5);
+			.padding(Padding::new(0.0).horizontal(3))
+			.into()
+		};
+
+		let pl_scroll = scrollable(meat).horizontal().spacing(5);
 
 		column![upper_row, pl_scroll].spacing(3).into()
 	}
