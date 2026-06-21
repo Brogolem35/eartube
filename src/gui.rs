@@ -721,7 +721,7 @@ impl AppState {
 			..Palette::DARK
 		};
 		Some(Theme::custom_with_fn(
-			"EarTube",
+			"Eartube",
 			palette,
 			Self::theme_extented,
 		))
