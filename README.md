@@ -1,6 +1,6 @@
 # Eartube
 
-A stupid simple YouTube Music frontend with caching and stuff.
+A stupid simple YouTube Music frontend with caching (only Favorites) and stuff.
 
 ![Eartube screenshot](img/screenshot.png)
 
