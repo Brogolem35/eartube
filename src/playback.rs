@@ -1,12 +1,13 @@
 use std::{fmt::Debug, time::Duration};
 
-use rustypipe::model::TrackItem;
+use rustypipe::model::{TrackItem, traits::YtEntity};
 use tokio::{
 	select,
 	sync::mpsc::{UnboundedReceiver, UnboundedSender},
 };
 
 use crate::{
+	audio_cache,
 	data::update_track_view,
 	player::{Player, PlayerState},
 };
@@ -229,6 +230,7 @@ pub async fn playback_loop(
 	tx: UnboundedSender<PlaybackEvent>,
 ) {
 	let mut pl = Playback::new();
+
 	loop {
 		select! {
 			Some(cmd) = rx.recv() => {
@@ -244,6 +246,9 @@ pub async fn playback_loop(
 					},
 					Err(e) => {
 						eprintln!("Error occured during playback: {e}");
+						if let Some(t) = pl.index.and_then(|i| pl.get_track(i)) {
+							audio_cache::remove(t.id()).await;
+						}
 					},
 				    }
 			}

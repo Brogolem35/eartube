@@ -13,6 +13,14 @@ use crate::{
 
 static DOWNLOADING: LazyLock<DashSet<String>> = LazyLock::new(DashSet::new);
 
+struct DownloadGuard(String);
+
+impl Drop for DownloadGuard {
+	fn drop(&mut self) {
+		DOWNLOADING.remove(&self.0);
+	}
+}
+
 pub async fn get_audio(id: &str) -> anyhow::Result<AudioSource> {
 	if let Ok(src) = cacache::read(audio_cache_dir(), id).await {
 		return Ok(AudioSource::Local(Cursor::new(src)));
@@ -34,6 +42,10 @@ pub async fn get_audio(id: &str) -> anyhow::Result<AudioSource> {
 	Ok(AudioSource::Remote(reader))
 }
 
+pub async fn remove(id: &str) {
+	let _ = cacache::remove(audio_cache_dir(), id).await;
+}
+
 pub fn fetch(id: &str) {
 	let dir = audio_cache_dir();
 	match cacache::metadata_sync(&dir, id) {
@@ -53,14 +65,52 @@ pub fn fetch(id: &str) {
 }
 
 async fn fetch_inner(id: String, url: String) {
-	println!("Downloading audio: {}", &id);
-	if let Ok(b) = reqwest::get(url).await
-		&& let Ok(b) = b.bytes().await
+	let _guard = DownloadGuard(id.clone());
+
+	println!("Downloading audio: {id}");
+	let response = match reqwest::get(&url).await {
+		Ok(r) => r,
+		Err(e) => {
+			eprintln!("Request failed for {id}: {e}");
+			return;
+		}
+	};
+
+	let response = match response.error_for_status() {
+		Ok(r) => r,
+		Err(e) => {
+			eprintln!("HTTP error for {id}: {e}");
+			return;
+		}
+	};
+
+	let content_type = response
+		.headers()
+		.get(reqwest::header::CONTENT_TYPE)
+		.and_then(|v| v.to_str().ok());
+
+	if let Some(ct) = content_type
+		&& !ct.starts_with("audio/")
+		&& ct != "application/octet-stream"
 	{
-		let _ = cacache::write(audio_cache_dir(), &id, b).await;
-		DOWNLOADING.remove(&id);
-		println!("Downloaded audio: {}", &id);
+		eprintln!("Unexpected content type for {id}: {ct}");
+		return;
 	}
+
+	let bytes = match response.bytes().await {
+		Ok(b) => b,
+		Err(e) => {
+			eprintln!("Failed reading body for {id}: {e}");
+			return;
+		}
+	};
+
+	if let Err(e) = cacache::write(audio_cache_dir(), &id, bytes).await {
+		eprintln!("Cache write failed for {id}: {e}");
+		return;
+	}
+
+	println!("Downloaded audio: {id}");
 }
 
 pub enum AudioSource {
