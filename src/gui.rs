@@ -1,7 +1,8 @@
 use std::time::Duration;
 
 use iced::{
-	Background, Border, Color, ContentFit, Element, Length, Padding, Subscription, Task, Theme,
+	Background, Border, Color, ContentFit, Element, Length, Padding, Size, Subscription, Task,
+	Theme,
 	alignment::{Horizontal, Vertical},
 	border::Radius,
 	color, event,
@@ -1029,6 +1030,7 @@ pub fn iced_main() -> iced::Result {
 		.theme(AppState::theme)
 		.exit_on_close_request(false)
 		.subscription(AppState::subscription)
+		.window_size(Size::new(1050.0, 870.0))
 		.run()
 }
 
