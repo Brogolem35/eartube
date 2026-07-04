@@ -19,6 +19,7 @@ pub struct Playback {
 	index: Option<usize>,
 	pause: bool,
 	volume: f32,
+	ploop: bool,
 }
 
 impl Playback {
@@ -29,6 +30,7 @@ impl Playback {
 			index: None,
 			pause: true,
 			volume: 1.0,
+			ploop: false,
 		}
 	}
 
@@ -82,6 +84,7 @@ impl Playback {
 		self.index.take();
 		self.player = PlayerState::None;
 		self.pause = false;
+		self.ploop = false;
 	}
 
 	pub fn push_track(&mut self, track: TrackItem) {
@@ -109,7 +112,7 @@ impl Playback {
 		}
 	}
 
-	pub fn toggle_pause(&mut self) -> anyhow::Result<()> {
+	pub fn toggle_pause(&mut self) {
 		self.pause = !self.pause;
 		match self.pause {
 			true => {
@@ -123,15 +126,17 @@ impl Playback {
 				}
 			}
 		}
+	}
 
-		Ok(())
+	pub fn toggle_loop(&mut self) {
+		self.ploop = !self.ploop;
 	}
 
 	pub fn skip_next(&mut self) {
 		self.index = match self.index {
 			None => Some(0),
 			Some(x) if x == (self.len() - 1) => {
-				self.pause = true;
+				self.pause = !self.ploop;
 				None
 			}
 			Some(x) => Some(x + 1),
@@ -174,6 +179,7 @@ impl Playback {
 			volume: self.volume,
 			pos: pref.map(|p| p.get_pos()).unwrap_or_default(),
 			length: pref.map(|p| p.duration).unwrap_or_default(),
+			ploop: self.ploop,
 		}
 	}
 
@@ -218,6 +224,7 @@ pub enum PlaybackCommand {
 	SetVolume(f32),
 	PushTrack(TrackItem),
 	RemoveFromQueue(usize),
+	ToggleLoop,
 }
 
 pub enum PlaybackEvent {
@@ -268,7 +275,7 @@ pub async fn playback_command(
 				.unwrap();
 		}
 		PlaybackCommand::TogglePause => {
-			pl.toggle_pause().unwrap();
+			pl.toggle_pause();
 			tx.send(PlaybackEvent::PlayerUpdated(pl.player_view()))
 				.unwrap();
 		}
@@ -317,6 +324,11 @@ pub async fn playback_command(
 			tx.send(PlaybackEvent::QueueUpdated(pl.playback_view()))
 				.unwrap();
 		}
+		PlaybackCommand::ToggleLoop => {
+			pl.toggle_loop();
+			tx.send(PlaybackEvent::PlayerUpdated(pl.player_view()))
+				.unwrap();
+		}
 	}
 }
 
@@ -361,6 +373,7 @@ pub struct PlayerView {
 	pub volume: f32,
 	pub pos: Duration,
 	pub length: Duration,
+	pub ploop: bool,
 }
 
 impl PlayerView {

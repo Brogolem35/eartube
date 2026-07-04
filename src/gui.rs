@@ -330,6 +330,12 @@ impl AppState {
 		let control_buttons = row![skipp_button, pause_button, skipn_button].spacing(2);
 
 		let volume_slider = self.view_volume_slider();
+		let loop_toggle = button(svg(loop_button_icon(self.playback_view.player.ploop)))
+			.on_press(Message::ToggleLoop)
+			.height(button_height)
+			.padding(0)
+			.width(button_width);
+		let right_row = row![volume_slider, loop_toggle].spacing(50).width(Length::Fill);
 
 		let current_track = self.playback_view.current_track();
 		let favorited = current_track
@@ -344,7 +350,7 @@ impl AppState {
 			.align_y(Vertical::Center)
 			.width(Length::Fill);
 
-		let controls_row = row![left_row, control_buttons, volume_slider]
+		let controls_row = row![left_row, control_buttons, right_row]
 			.align_y(Vertical::Center)
 			.spacing(35);
 
@@ -411,10 +417,7 @@ impl AppState {
 			.align_x(Horizontal::Right)
 			.width(40);
 
-		row![slider_area, text]
-			.align_y(Vertical::Center)
-			.width(Length::Fill)
-			.spacing(5)
+		row![slider_area, text].align_y(Vertical::Center).spacing(5)
 	}
 
 	fn view_search_input(&self) -> Element<'_, Message> {
@@ -590,6 +593,10 @@ impl AppState {
 			Message::RemoveFromHistory(id) => {
 				data::remove_from_history(&id);
 				self.update_history_views();
+				Task::none()
+			}
+			Message::ToggleLoop => {
+				self.playback_tx.send(PlaybackCommand::ToggleLoop).unwrap();
 				Task::none()
 			}
 			Message::CopyText(s) => iced::clipboard::write(s),
@@ -1014,6 +1021,7 @@ pub enum Message {
 	StartPlaylist(Vec<TrackItem>),
 	StartShuffle(Vec<TrackItem>),
 	RemoveFromHistory(String),
+	ToggleLoop,
 	CopyText(String),
 	GoHome,
 	GoPlaylist(Playlist),
@@ -1045,6 +1053,13 @@ fn favorite_button_icon(favorited: bool) -> svg::Handle {
 	match favorited {
 		true => svg::Handle::from_memory(icons::FAVORITED),
 		false => svg::Handle::from_memory(icons::FAVORITE),
+	}
+}
+
+fn loop_button_icon(looping: bool) -> svg::Handle {
+	match looping {
+		true => svg::Handle::from_memory(icons::LOOP),
+		false => svg::Handle::from_memory(icons::LOOP_EMPTY),
 	}
 }
 

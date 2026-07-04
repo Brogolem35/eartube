@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Uploaded to: SVG Repo, www.svgrepo.com, Generator: SVG Repo Mixer Tools -->
+
+<svg
+   fill="#000000"
+   width="676.82642"
+   height="627.2511"
+   viewBox="0 0 27.073056 25.090044"
+   version="1.1"
+   id="svg1"
+   sodipodi:docname="loop.svg"
+   inkscape:version="1.4.4 (dcaf3e7d9e, 2026-05-05)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <defs
+     id="defs1" />
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:zoom="0.99875"
+     inkscape:cx="307.88486"
+     inkscape:cy="345.93242"
+     inkscape:window-width="1920"
+     inkscape:window-height="1008"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg1" />
+  <title
+     id="title1">loop</title>
+  <path
+     d="m 22.536528,16.607022 c 0,0.667 -0.333,0.938 -1,0.938 H 5.5365282 v -3.188 l -4.68800003,4.688 4.62500003,4.625 0.063,-3.125 H 23.536528 c 1.104,0 2,-0.896 2,-2 V 9.9410225 l -3,2.9999995 z M 4.5365282,8.4830225 c 0,-0.667 0.333,-0.938 1,-0.938 H 21.536528 v 3.1879995 l 4.688,-4.6879995 -4.625,-4.625 -0.063,3.125 H 3.5365282 c -1.104,0 -2,0.896 -2,2 v 8.6039995 l 3,-3 z"
+     id="path1"
+     style="fill:#ffffff;fill-opacity:1;stroke:#ffffff;stroke-width:1.2;stroke-dasharray:none;stroke-opacity:1" />
+  <metadata
+     id="metadata2">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:title>loop</dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+</svg>

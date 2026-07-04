@@ -6,3 +6,5 @@ pub static FAVORITE: &[u8] = include_bytes!("../icons/favorite.svg");
 pub static FAVORITED: &[u8] = include_bytes!("../icons/favorited.svg");
 pub static CROSS: &[u8] = include_bytes!("../icons/cross.svg");
 pub static SHUFFLE: &[u8] = include_bytes!("../icons/shuffle.svg");
+pub static LOOP: &[u8] = include_bytes!("../icons/loop.svg");
+pub static LOOP_EMPTY: &[u8] = include_bytes!("../icons/loop_empty.svg");
