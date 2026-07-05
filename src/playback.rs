@@ -1,5 +1,6 @@
 use std::{fmt::Debug, time::Duration};
 
+use rand::seq::SliceRandom;
 use rustypipe::model::{TrackItem, traits::YtEntity};
 use tokio::{
 	select,
@@ -199,6 +200,11 @@ impl Playback {
 			std::cmp::Ordering::Less => {}
 		}
 	}
+
+	fn shuffle_queue(&mut self) {
+		let i = self.index.clone().map(|x| x + 1).unwrap_or(0);
+		self.queue[i..].shuffle(&mut rand::rng());
+	}
 }
 
 impl Debug for Playback {
@@ -225,6 +231,7 @@ pub enum PlaybackCommand {
 	PushTrack(TrackItem),
 	RemoveFromQueue(usize),
 	ToggleLoop,
+	Shuffle,
 }
 
 pub enum PlaybackEvent {
@@ -327,6 +334,11 @@ pub async fn playback_command(
 		PlaybackCommand::ToggleLoop => {
 			pl.toggle_loop();
 			tx.send(PlaybackEvent::PlayerUpdated(pl.player_view()))
+				.unwrap();
+		}
+		PlaybackCommand::Shuffle => {
+			pl.shuffle_queue();
+			tx.send(PlaybackEvent::QueueUpdated(pl.playback_view()))
 				.unwrap();
 		}
 	}

@@ -335,7 +335,14 @@ impl AppState {
 			.height(button_height)
 			.padding(0)
 			.width(button_width);
-		let right_row = row![volume_slider, loop_toggle]
+		let shuffle = button(svg(svg::Handle::from_memory(icons::SHUFFLE)))
+			.on_press(Message::ShufflePlayback)
+			.height(button_height)
+			.padding(0)
+			.width(button_width);
+		let right_buttons = row![loop_toggle, shuffle];
+		let right_row = row![volume_slider, right_buttons]
+			.align_y(Vertical::Center)
 			.spacing(50)
 			.width(Length::Fill);
 
@@ -599,6 +606,10 @@ impl AppState {
 			}
 			Message::ToggleLoop => {
 				self.playback_tx.send(PlaybackCommand::ToggleLoop).unwrap();
+				Task::none()
+			}
+			Message::ShufflePlayback => {
+				self.playback_tx.send(PlaybackCommand::Shuffle).unwrap();
 				Task::none()
 			}
 			Message::CopyText(s) => iced::clipboard::write(s),
@@ -1024,6 +1035,7 @@ pub enum Message {
 	StartShuffle(Vec<TrackItem>),
 	RemoveFromHistory(String),
 	ToggleLoop,
+	ShufflePlayback,
 	CopyText(String),
 	GoHome,
 	GoPlaylist(Playlist),
