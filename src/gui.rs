@@ -365,7 +365,7 @@ impl AppState {
 
 		column![playback_progress, controls_row,]
 			.align_x(Horizontal::Center)
-			.padding(10)
+			.padding(Padding::new(10.0).top(2.0))
 	}
 
 	fn view_playback_informer(&self) -> Element<'_, Message> {
@@ -399,6 +399,7 @@ impl AppState {
 		let playback_len = text(duration_fmt(len));
 
 		row![playback_pos, playback_slider, playback_len]
+			.align_y(Vertical::Center)
 			.spacing(10)
 			.padding(5)
 	}
