@@ -175,7 +175,7 @@ impl AppState {
 		.align_y(Vertical::Center)
 		.spacing(10);
 
-		let meat: Element<'_, Message> = if playlist.len() == 0 {
+		let meat: Element<'_, Message> = if playlist.is_empty() {
 			text("List is empty")
 				.align_y(Vertical::Center)
 				.align_x(Horizontal::Center)
@@ -335,7 +335,9 @@ impl AppState {
 			.height(button_height)
 			.padding(0)
 			.width(button_width);
-		let right_row = row![volume_slider, loop_toggle].spacing(50).width(Length::Fill);
+		let right_row = row![volume_slider, loop_toggle]
+			.spacing(50)
+			.width(Length::Fill);
 
 		let current_track = self.playback_view.current_track();
 		let favorited = current_track
