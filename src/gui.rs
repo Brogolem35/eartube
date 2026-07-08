@@ -26,6 +26,7 @@ use crate::{
 	data::{self, Playlist, toggle_favorite},
 	icons,
 	playback::{MediaMeta, PlaybackCommand, PlaybackEvent, PlaybackView, playback_loop},
+	scene,
 	thumbnail::{ThumbnailCache, ThumbnailSource},
 	yt::{YtSearch, new_radio, search, youtube_link},
 };
@@ -103,18 +104,18 @@ impl AppState {
 	}
 
 	fn view(&self) -> Element<'_, Message> {
-		match self.queue_scene {
-			false => self.scene_boilerplate(match &self.scene {
-				Scene::Home => self.view_home(),
-				Scene::Search(tab) => self.view_search(*tab),
-				Scene::Favorites => {
-					self.view_playlist("Favorites", &self.favorites_view)
-				}
-				Scene::History(h) => self.view_playlist("History", h),
-				Scene::Playlist(p) => self.view_playlist(&p.name, &p.tracks),
-			}),
-			true => self.view_queue(),
-		}
+		let main = self.scene_boilerplate(match &self.scene {
+			Scene::Home => self.view_home(),
+			Scene::Search(tab) => self.view_search(*tab),
+			Scene::Favorites => self.view_playlist("Favorites", &self.favorites_view),
+			Scene::History(h) => self.view_playlist("History", h),
+			Scene::Playlist(p) => self.view_playlist(&p.name, &p.tracks),
+		});
+		let queue = self.view_queue();
+
+		scene::Scene::new(vec![(true, queue), (false, main)])
+			.set_active_scene(self.queue_scene)
+			.into()
 	}
 
 	fn view_home(&self) -> Element<'_, Message> {

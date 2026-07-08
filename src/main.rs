@@ -4,6 +4,7 @@ mod gui;
 mod icons;
 mod playback;
 mod player;
+mod scene;
 mod thumbnail;
 mod yt;
 
