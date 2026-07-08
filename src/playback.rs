@@ -202,7 +202,7 @@ impl Playback {
 	}
 
 	fn shuffle_queue(&mut self) {
-		let i = self.index.clone().map(|x| x + 1).unwrap_or(0);
+		let i = self.index.map(|x| x + 1).unwrap_or(0);
 		self.queue[i..].shuffle(&mut rand::rng());
 	}
 }
