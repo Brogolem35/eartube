@@ -1,6 +1,42 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <!-- Uploaded to: SVG Repo, www.svgrepo.com, Generator: SVG Repo Mixer Tools -->
-<svg fill="#ffffff" width="800px" height="800px" viewBox="0 0 32 32" version="1.1" xmlns="http://www.w3.org/2000/svg">
-<title>shuffle</title>
-<path d="M22.969 12v2.938l7.062-4.562-7-4.375-0.062 3h-5.875l-7.188 10.937h-7.875v3.062h9.375l7-11h4.563zM12.031 15.188l1.562-2.75-2.187-3.438h-9.375l-0.062 3h7.938l2.124 3.188zM22.969 20h-4.562l-2-3.188-1.626 2.688 2.312 3.5h5.875l0.062 3 7-4.375-7.062-4.562v2.937z"></path>
+
+<svg
+   fill="#ffffff"
+   width="701.54999"
+   height="501.97751"
+   viewBox="0 0 28.062 20.0791"
+   version="1.1"
+   id="svg1"
+   sodipodi:docname="shuffle.svg"
+   inkscape:version="1.4.4 (dcaf3e7d9e, 2026-05-05)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <defs
+     id="defs1" />
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:zoom="0.99875"
+     inkscape:cx="471.08886"
+     inkscape:cy="380.97622"
+     inkscape:window-width="1920"
+     inkscape:window-height="1008"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg1" />
+  <title
+     id="title1">shuffle</title>
+  <path
+     d="M 21,5.999 V 8.937 L 28.062,4.375 21.062,0 21,3 H 15.125 L 7.937,13.937 H 0.062 v 3.062 h 9.375 l 7,-11 z M 10.062,9.187 11.624,6.437 9.437,2.999 H 0.062 L 0,5.999 H 7.938 Z M 21,13.999 h -4.562 l -2,-3.188 -1.626,2.688 2.312,3.5 h 5.875 l 0.062,3 7,-4.375 -7.062,-4.562 v 2.937 z"
+     id="path1" />
 </svg>
