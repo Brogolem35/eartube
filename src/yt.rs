@@ -67,3 +67,10 @@ pub async fn get_stream_url(youtube_url: &str) -> anyhow::Result<String> {
 pub fn youtube_link(id: &str) -> String {
 	format!("https://music.youtube.com/watch?v={}", id)
 }
+
+pub fn ytdlp_available() -> bool {
+	std::process::Command::new("yt-dlp")
+		.arg("--version")
+		.output()
+		.is_err()
+}

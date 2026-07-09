@@ -28,7 +28,7 @@ use crate::{
 	playback::{MediaMeta, PlaybackCommand, PlaybackEvent, PlaybackView, playback_loop},
 	screen,
 	thumbnail::{ThumbnailCache, ThumbnailSource},
-	yt::{YtSearch, new_radio, search, youtube_link},
+	yt::{YtSearch, new_radio, search, youtube_link, ytdlp_available},
 };
 
 const SMALL_THUMBNAIL_SIZE: u32 = 80;
@@ -36,6 +36,8 @@ const SEMI_TRANSPARENT_COLOR: Color = Color::from_rgba(0.3, 0.3, 0.3, 0.3);
 const MOST_VIEWED_AMOUNT: usize = 20;
 
 struct AppState {
+	ytdlp_available: bool,
+
 	search_input: String,
 
 	playback_view: PlaybackView,
@@ -82,6 +84,8 @@ impl AppState {
 		tokio::spawn(playback_loop(player_rx, event_tx));
 
 		Self {
+			ytdlp_available: ytdlp_available(),
+
 			search_input: String::from("Bad Apple"),
 			playback_view: PlaybackView::default(),
 			playback_hold_pos: None,
@@ -104,6 +108,13 @@ impl AppState {
 	}
 
 	fn view(&self) -> Element<'_, Message> {
+		if self.ytdlp_available {
+			return text(
+				"yt-dlp could not be found. Make sure the executable is available on PATH and is up to date.",
+			)
+			.into();
+		}
+
 		let main = self.scene_boilerplate(match &self.scene {
 			Scene::Home => self.view_home(),
 			Scene::Search(tab) => self.view_search(*tab),
