@@ -26,7 +26,7 @@ use crate::{
 	data::{self, Playlist, toggle_favorite},
 	icons,
 	playback::{MediaMeta, PlaybackCommand, PlaybackEvent, PlaybackView, playback_loop},
-	scene,
+	screen,
 	thumbnail::{ThumbnailCache, ThumbnailSource},
 	yt::{YtSearch, new_radio, search, youtube_link},
 };
@@ -113,7 +113,7 @@ impl AppState {
 		});
 		let queue = self.view_queue();
 
-		scene::Scene::new(vec![(true, queue), (false, main)])
+		screen::Screen::new(vec![(true, queue), (false, main)])
 			.set_active_scene(self.queue_scene)
 			.into()
 	}
