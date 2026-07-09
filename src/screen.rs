@@ -1,3 +1,6 @@
+/// The code here is copied from iced_aw::Tabs and modified to remove the tab bar from it.
+///
+/// iced_aw is licensed under MIT License and the code can be found at https://github.com/iced-rs/iced_aw
 use iced::{
 	Element, Event, Length, Point, Rectangle, Size, Vector,
 	advanced::{
