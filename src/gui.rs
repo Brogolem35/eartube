@@ -419,7 +419,7 @@ impl AppState {
 	fn view_volume_slider(&self) -> Row<'_, Message> {
 		let vol = self.playback_view.player.volume;
 		let slider = slider(0.0..=1.0, vol, Message::VolumeChanged)
-			.step(0.005)
+			.step(0.005_f32)
 			.width(100);
 		let slider_area = mouse_area(slider).on_scroll(move |d| match d {
 			ScrollDelta::Lines { y, .. } | ScrollDelta::Pixels { y, .. } => {
