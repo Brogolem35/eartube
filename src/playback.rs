@@ -1,4 +1,4 @@
-use std::{fmt::Debug, time::Duration};
+use std::{cmp, fmt::Debug, time::Duration};
 
 use rand::seq::SliceRandom;
 use rustypipe::model::{TrackItem, traits::YtEntity};
@@ -205,6 +205,35 @@ impl Playback {
 		let i = self.index.map(|x| x + 1).unwrap_or(0);
 		self.queue[i..].shuffle(&mut rand::rng());
 	}
+
+	fn move_track(&mut self, from: usize, mut to: usize) {
+		if from > self.queue.len() || from == to || from + 1 == to {
+			return;
+		}
+
+		if to > from {
+			to -= 1;
+		}
+
+		let slot = self.queue.remove(from);
+		if to < self.queue.len() {
+			self.queue.insert(to, slot);
+		} else {
+			self.queue.push(slot);
+		}
+
+		if let Some(ref mut cur) = self.index {
+			match (from.cmp(cur), to.cmp(cur)) {
+				(cmp::Ordering::Less, cmp::Ordering::Less) => {}
+				(cmp::Ordering::Less, cmp::Ordering::Equal) => *cur -= 1,
+				(cmp::Ordering::Less, cmp::Ordering::Greater) => *cur -= 1,
+				(cmp::Ordering::Equal, _) => *cur = to,
+				(cmp::Ordering::Greater, cmp::Ordering::Less) => *cur += 1,
+				(cmp::Ordering::Greater, cmp::Ordering::Equal) => *cur += 1,
+				(cmp::Ordering::Greater, cmp::Ordering::Greater) => {}
+			}
+		}
+	}
 }
 
 impl Debug for Playback {
@@ -232,6 +261,7 @@ pub enum PlaybackCommand {
 	RemoveFromQueue(usize),
 	ToggleLoop,
 	Shuffle,
+	MoveTrack(usize, usize),
 }
 
 pub enum PlaybackEvent {
@@ -338,6 +368,11 @@ pub async fn playback_command(
 		}
 		PlaybackCommand::Shuffle => {
 			pl.shuffle_queue();
+			tx.send(PlaybackEvent::QueueUpdated(pl.playback_view()))
+				.unwrap();
+		}
+		PlaybackCommand::MoveTrack(from, to) => {
+			pl.move_track(from, to);
 			tx.send(PlaybackEvent::QueueUpdated(pl.playback_view()))
 				.unwrap();
 		}

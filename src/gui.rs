@@ -31,6 +31,8 @@ use crate::{
 	yt::{YtSearch, new_radio, search, youtube_link, ytdlp_available},
 };
 
+use iced_reorderable::Column as Reorderable;
+
 const SMALL_THUMBNAIL_SIZE: u32 = 80;
 const SEMI_TRANSPARENT_COLOR: Color = Color::from_rgba(0.3, 0.3, 0.3, 0.3);
 const MOST_VIEWED_AMOUNT: usize = 20;
@@ -244,23 +246,15 @@ impl AppState {
 	fn view_queue(&self) -> Element<'_, Message> {
 		let playback_control = self.view_playback_control();
 
-		let queue_elements = scrollable(Column::from_iter(
-			self.playback_view
-				.queue
-				.iter()
-				.enumerate()
-				.map(|(index, item)| {
-					let msg = Message::SkipTo(index);
-					let current = self
-						.playback_view
-						.index
-						.map(|i| index == i)
-						.unwrap_or(false);
-					let thumb = self.thumbnail_manager.get(&item.id);
-					let card = self.track_card(item, current, thumb, index);
-					mouse_area(card).on_press(msg).into()
-				}),
-		))
+		let queue_elements = scrollable(
+			Reorderable::from_iter(self.playback_view.queue.iter().enumerate().map(
+				|(index, item)| {
+					let card = self.track_card(item, index);
+					(index, card)
+				},
+			))
+			.on_drop(Message::QueueMove),
+		)
 		.width(Length::Fill)
 		.height(Length::Fill)
 		.id("queue_elements")
@@ -625,6 +619,12 @@ impl AppState {
 				self.playback_tx.send(PlaybackCommand::Shuffle).unwrap();
 				Task::none()
 			}
+			Message::QueueMove(from, to) => {
+				self.playback_tx
+					.send(PlaybackCommand::MoveTrack(from, to))
+					.unwrap();
+				Task::none()
+			}
 			Message::CopyText(s) => iced::clipboard::write(s),
 			Message::GoHome => {
 				self.scene = Scene::Home;
@@ -799,13 +799,15 @@ impl AppState {
 	}
 
 	#[allow(unstable_name_collisions)]
-	fn track_card<'a>(
-		&'a self,
-		track: &'a TrackItem,
-		current: bool,
-		thumb: image::Handle,
-		index: usize,
-	) -> Element<'a, Message> {
+	fn track_card<'a>(&'a self, track: &'a TrackItem, index: usize) -> Element<'a, Message> {
+		let msg = Message::SkipTo(index);
+		let current = self
+			.playback_view
+			.index
+			.map(|i| index == i)
+			.unwrap_or(false);
+		let thumb = self.thumbnail_manager.get(&track.id);
+
 		let thumbnail = sensor(image(thumb)
 			.content_fit(ContentFit::Cover)
 			.height(SMALL_THUMBNAIL_SIZE)
@@ -834,7 +836,7 @@ impl AppState {
 			.style(transparent_button_style)
 			.on_press(Message::RemoveFromQueue(index));
 
-		container(
+		let marea = mouse_area(
 			row![
 				thumbnail,
 				column,
@@ -843,6 +845,19 @@ impl AppState {
 			]
 			.spacing(6)
 			.padding(10),
+		)
+		.on_press(msg);
+
+		let drag = container(svg(svg::Handle::from_memory(icons::DRAG)).width(30))
+			.width(40)
+			.height(Length::Fill)
+			.align_x(Horizontal::Center)
+			.align_y(Vertical::Center);
+
+		container(
+			row![drag, marea]
+				.align_y(Vertical::Center)
+				.padding(Padding::default().horizontal(10)),
 		)
 		.width(Length::Fill)
 		.style(move |t: &Theme| track_card_style(t, current))
@@ -1050,6 +1065,7 @@ pub enum Message {
 	ToggleLoop,
 	ShufflePlayback,
 	CopyText(String),
+	QueueMove(usize, usize),
 	GoHome,
 	GoPlaylist(Playlist),
 	GoFavorites,

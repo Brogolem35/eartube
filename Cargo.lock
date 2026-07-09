@@ -1402,6 +1402,7 @@ dependencies = [
  "foldhash 0.2.0",
  "iced",
  "iced_aw",
+ "iced_reorderable",
  "itertools 0.15.0",
  "parking_lot",
  "rand 0.10.2",
@@ -2483,6 +2484,14 @@ dependencies = [
  "iced_wgpu",
  "log",
  "thiserror 2.0.18",
+]
+
+[[package]]
+name = "iced_reorderable"
+version = "0.1.0"
+source = "git+https://github.com/Brogolem35/iced_reorderable.git#1bde508274c27086bf05c478c3c66002483fd16a"
+dependencies = [
+ "iced",
 ]
 
 [[package]]
