@@ -21,7 +21,7 @@ serde = "1.0.228"
 serde_json = "1.0.150"
 souvlaki = { git = "https://github.com/Brogolem35/souvlaki.git" }
 stream-download = "0.24.1"
-tokio = { version = "1.52.3" }
+tokio = { version = "1.53.0" }
 iced_reorderable = { git = "https://github.com/Brogolem35/iced_reorderable.git" }
 
 [profile.dev.package."*"]
