@@ -1,8 +1,13 @@
 [package]
 name = "eartube"
 version = "0.1.0"
+authors = ["brogolem35"]
 edition = "2024"
+description = "Simple YouTube Music frontend made with Iced."
 license = "GPL-3.0"
+repository = "https://github.com/Brogolem35/eartube"
+keywords = ["youtube", "music", "player", "frontend", "gui"]
+categories = ["gui", "multimedia"]
 
 [dependencies]
 anyhow = "1.0.103"
