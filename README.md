@@ -2,7 +2,7 @@
 
 A stupid simple YouTube Music frontend with caching (only Favorites) and stuff.
 
-![Eartube screenshot](img/screenshot.png)
+![Eartube screenshot](assets/screenshot.png)
 
 ## Installation
 
