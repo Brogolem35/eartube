@@ -1,5 +1,7 @@
 use std::time::Duration;
 
+#[cfg(target_os = "linux")]
+use iced::window::settings::PlatformSpecific;
 use iced::{
 	Background, Border, Color, ContentFit, Element, Length, Padding, Size, Subscription, Task,
 	Theme,
@@ -1077,6 +1079,19 @@ pub enum Message {
 
 pub fn iced_main() -> iced::Result {
 	iced::application(AppState::new, AppState::update, AppState::view)
+		.settings(iced::Settings {
+			id: Some(String::from("eartube")),
+			..Default::default()
+		})
+		.window(window::Settings {
+			icon: window::icon::from_file_data(icons::ICON, None).ok(),
+			#[cfg(target_os = "linux")]
+			platform_specific: PlatformSpecific {
+				application_id: String::from("eartube"),
+				..PlatformSpecific::default()
+			},
+			..Default::default()
+		})
 		.title("Eartube")
 		.theme(AppState::theme)
 		.exit_on_close_request(false)

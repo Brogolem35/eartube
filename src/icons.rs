@@ -1,3 +1,4 @@
+pub static ICON: &[u8] = include_bytes!("../icons/icon.svg");
 pub static PLAY: &[u8] = include_bytes!("../icons/play.svg");
 pub static PAUSE: &[u8] = include_bytes!("../icons/pause.svg");
 pub static PREV: &[u8] = include_bytes!("../icons/prev.svg");
