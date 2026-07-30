@@ -37,3 +37,6 @@ opt-level = 3
 
 [profile.release]
 codegen-units = 1
+
+[build-dependencies]
+winresource = "0.1.31"
