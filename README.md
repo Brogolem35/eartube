@@ -1,4 +1,12 @@
-# Eartube
+<h1>
+  <img
+    src="https://raw.githubusercontent.com/Brogolem35/eartube/refs/heads/master/assets/icon.svg"
+    alt="Eartube Icon"
+    height="35"
+    valign="middle"
+  />
+  <strong vertical-align:middle;">Eartube</strong>
+</h1>
 
 A stupid simple YouTube Music frontend with caching (only Favorites) and stuff.
 
