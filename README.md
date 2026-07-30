@@ -10,6 +10,8 @@
 
 A stupid simple YouTube Music frontend with caching (only Favorites) and stuff.
 
+Eartube icon by [Cassius Blake](https://cassiusunarsivi.blogspot.com/).
+
 ![Eartube screenshot](assets/screenshot.png)
 
 ## Installation
@@ -20,7 +22,7 @@ This software depends on the `yt-dlp` being on the `PATH`. No other additional d
 cargo install --path .
 ```
 
-## Icon Credits
+## Misc Icon Credits
 https://www.svgrepo.com/
 
 Vectors and icons by <a href="https://www.bypeople.com/minimal-free-pixel-perfect-icons/?ref=svgrepo.com" target="_blank">Bypeople</a> in PD License via <a href="https://www.svgrepo.com/" target="_blank">SVG Repo</a>
