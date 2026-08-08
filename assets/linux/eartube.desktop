@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Eartube
+Comment=YouTube Music client
+Exec=eartube
+Icon=eartube
+StartupWMClass=eartube
+Terminal=false
+Categories=AudioVideo;Player;
