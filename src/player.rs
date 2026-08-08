@@ -57,7 +57,7 @@ impl Player {
 
 	#[allow(unused)]
 	pub fn get_time_rem(&self) -> Duration {
-		self.duration - self.inner.get_pos()
+		self.duration.saturating_sub(self.inner.get_pos())
 	}
 
 	pub fn seek_forward(&self, amount: f32) -> Result<()> {
