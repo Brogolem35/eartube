@@ -2,7 +2,7 @@ use std::{sync::LazyLock, time::Duration};
 
 use anyhow::{Context, Ok, Result};
 use rodio::{Decoder, MixerDeviceSink, Source};
-use tokio::task::JoinHandle;
+use tokio::{runtime::Handle, task::JoinHandle};
 
 use crate::audio_cache;
 
@@ -21,27 +21,34 @@ impl Player {
 			let reader = audio_cache::get_audio(&url).await?;
 			let len_hint = reader.len();
 
-			tokio::task::spawn_blocking(move || {
-				let source = Decoder::builder()
+			// TODO: This method probably causing thread leakage but will do for now.
+			let handle = std::thread::spawn(move || {
+				Decoder::builder()
 					.with_seekable(true)
 					.with_byte_len(len_hint)
 					.with_coarse_seek(true)
 					.with_data(reader)
-					.build()?;
+					.build()
+			});
 
-				let duration = source
-					.total_duration()
-					.context("Decoder: Unknown length of stream.")?;
-				let player = rodio::Player::connect_new(SINK_HANDLE.mixer());
-				player.append(source);
-				player.set_volume(volume);
+			while !handle.is_finished() {
+				tokio::time::sleep(Duration::from_millis(1)).await;
+			}
+			let source = handle
+				.join()
+				.map_err(|_| anyhow::anyhow!("Decoder thread panicked"))??;
 
-				Ok(Self {
-					inner: player,
-					duration,
-				})
+			let duration = source
+				.total_duration()
+				.context("Decoder: Unknown length of stream.")?;
+			let player = rodio::Player::connect_new(SINK_HANDLE.mixer());
+			player.append(source);
+			player.set_volume(volume);
+
+			Ok(Self {
+				inner: player,
+				duration,
 			})
-			.await?
 		})
 	}
 
