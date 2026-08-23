@@ -35,7 +35,7 @@ impl Playback {
 		}
 	}
 
-	pub async fn play(&mut self) -> anyhow::Result<()> {
+	pub fn play(&mut self) -> anyhow::Result<()> {
 		if let PlayerState::Loaded(ref player) = self.player
 			&& !player.finished()
 		{
@@ -278,10 +278,10 @@ pub async fn playback_loop(
 	loop {
 		select! {
 			Some(cmd) = rx.recv() => {
-				playback_command(&mut pl, cmd, &tx).await;
+				playback_command(&mut pl, cmd, &tx);
 			}
 			_ = tokio::time::sleep(Duration::from_millis(100)) => {
-				playback_idle_tick(&mut pl, &tx).await;
+				playback_idle_tick(&mut pl, &tx);
 			}
 			Some(res) = pl.player.try_finish() => {
 				match res {
@@ -300,7 +300,7 @@ pub async fn playback_loop(
 	}
 }
 
-pub async fn playback_command(
+pub fn playback_command(
 	pl: &mut Playback,
 	cmd: PlaybackCommand,
 	tx: &UnboundedSender<PlaybackEvent>,
@@ -379,7 +379,7 @@ pub async fn playback_command(
 	}
 }
 
-pub async fn playback_idle_tick(pl: &mut Playback, tx: &UnboundedSender<PlaybackEvent>) {
+pub fn playback_idle_tick(pl: &mut Playback, tx: &UnboundedSender<PlaybackEvent>) {
 	if pl.finished() && !pl.pause {
 		if pl.player.get_player().is_some() {
 			pl.skip_next();
@@ -388,7 +388,7 @@ pub async fn playback_idle_tick(pl: &mut Playback, tx: &UnboundedSender<Playback
 		if pl.pause {
 			return;
 		}
-		let e = pl.play().await;
+		let e = pl.play();
 		if let Err(e) = e {
 			eprintln!("Error occured during playback: {e}");
 		}
