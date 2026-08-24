@@ -201,8 +201,6 @@ pub fn get_favorites() -> RwLockReadGuard<'static, Vec<TrackItem>> {
 	FAVORITES.read()
 }
 
-pub static PLAYLISTS: RwLock<Vec<Playlist>> = RwLock::new(Vec::new());
-
 #[derive(Serialize, Deserialize, Clone)]
 pub struct TrackStat {
 	track: TrackItem,
@@ -232,6 +230,7 @@ pub struct Playlist {
 }
 
 impl Playlist {
+	#[expect(unused)]
 	pub fn new(name: &str) -> Self {
 		Self {
 			name: name.to_owned(),
@@ -239,6 +238,7 @@ impl Playlist {
 		}
 	}
 
+	#[expect(unused)]
 	pub fn from_vec(name: &str, list: Vec<TrackItem>) -> Self {
 		Self {
 			name: name.to_owned(),

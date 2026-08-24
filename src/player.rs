@@ -2,7 +2,7 @@ use std::{sync::LazyLock, time::Duration};
 
 use anyhow::{Context, Ok, Result};
 use rodio::{Decoder, MixerDeviceSink, Source};
-use tokio::{runtime::Handle, task::JoinHandle};
+use tokio::task::JoinHandle;
 
 use crate::audio_cache;
 
