@@ -6,6 +6,7 @@ use std::{
 
 use anyhow::bail;
 use dashmap::DashSet;
+use itertools::Itertools;
 use stream_download::{
 	Settings, StreamDownload,
 	process::{CommandBuilder, FfmpegConvertAudioCommand, ProcessStreamParams, YtDlpCommand},
@@ -15,7 +16,7 @@ use youtube_dl::{YoutubeDl, YoutubeDlOutput};
 
 use crate::{
 	data::{audio_cache_dir, is_favorited},
-	yt::{get_stream_url, youtube_link},
+	yt::youtube_link,
 };
 
 static DOWNLOADING: LazyLock<DashSet<String>> = LazyLock::new(DashSet::new);
@@ -34,11 +35,10 @@ pub async fn get_audio(id: &str) -> anyhow::Result<AudioSource> {
 	}
 
 	let yt_link = youtube_link(id);
-	let stream_url = get_stream_url(&yt_link).await?;
 
 	// `insert` returns true if key used to be vacant
 	if is_favorited(id) && DOWNLOADING.insert(id.to_owned()) {
-		tokio::spawn(fetch_inner(id.to_owned(), stream_url.clone()));
+		tokio::spawn(fetch_inner(id.to_owned(), yt_link.clone()));
 	}
 
 	let reader = remote_reader(&yt_link).await?;
@@ -58,10 +58,9 @@ pub fn fetch(id: &str) {
 			if DOWNLOADING.insert(id.to_owned()) {
 				let id = id.to_owned();
 				let yt_link = youtube_link(&id);
-				tokio::spawn(async move {
-					let url = get_stream_url(&yt_link).await.unwrap();
-					fetch_inner(id.to_owned(), url.to_owned()).await
-				});
+				tokio::spawn(
+					async move { fetch_inner(id.to_owned(), yt_link).await },
+				);
 			}
 		}
 	}
@@ -69,41 +68,36 @@ pub fn fetch(id: &str) {
 
 async fn fetch_inner(id: String, url: String) {
 	let _guard = DownloadGuard(id.clone());
-
 	println!("Downloading audio: {id}");
-	let response = match reqwest::get(&url).await {
+
+	// try block at home
+	let res = (async || -> anyhow::Result<Vec<u8>> {
+		let reader = remote_reader(&url).await?;
+
+		let handle = std::thread::spawn(|| {
+			let mut stream = reader.bytes();
+			let b = Vec::with_capacity(stream.size_hint().0);
+			stream.fold_ok(b, |mut acc, x| {
+				acc.push(x);
+				acc
+			})
+		});
+
+		while !handle.is_finished() {
+			tokio::time::sleep(Duration::from_millis(1)).await;
+		}
+		let source = handle
+			.join()
+			.map_err(|_| anyhow::anyhow!("Download thread panicked"))??;
+
+		Ok(source)
+	})()
+	.await;
+
+	let bytes = match res {
 		Ok(r) => r,
 		Err(e) => {
-			eprintln!("Request failed for {id}: {e}");
-			return;
-		}
-	};
-
-	let response = match response.error_for_status() {
-		Ok(r) => r,
-		Err(e) => {
-			eprintln!("HTTP error for {id}: {e}");
-			return;
-		}
-	};
-
-	let content_type = response
-		.headers()
-		.get(reqwest::header::CONTENT_TYPE)
-		.and_then(|v| v.to_str().ok());
-
-	if let Some(ct) = content_type
-		&& !ct.starts_with("audio/")
-		&& ct != "application/octet-stream"
-	{
-		eprintln!("Unexpected content type for {id}: {ct}");
-		return;
-	}
-
-	let bytes = match response.bytes().await {
-		Ok(b) => b,
-		Err(e) => {
-			eprintln!("Failed reading body for {id}: {e}");
+			eprintln!("Download failed for {id}: {e}");
 			return;
 		}
 	};
