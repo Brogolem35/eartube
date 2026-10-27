@@ -112,7 +112,7 @@ impl AppState {
 	}
 
 	fn view(&self) -> Element<'_, Message> {
-		if self.dependencies_available {
+		if !self.dependencies_available {
 			return text(
 				"yt-dlp and/or ffmpeg could not be found. Make sure the dependencies are available on PATH and are up to date.",
 			)
@@ -1205,8 +1205,8 @@ fn dependencies_available() -> bool {
 	std::process::Command::new("yt-dlp")
 		.arg("--version")
 		.output()
-		.is_err() && std::process::Command::new("ffmpeg")
+		.is_ok() && std::process::Command::new("ffmpeg")
 		.arg("-version")
 		.output()
-		.is_err()
+		.is_ok()
 }
