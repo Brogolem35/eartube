@@ -16,7 +16,7 @@ Eartube icon by [Cassius Blake](https://cassiusunarsivi.blogspot.com/).
 
 ## Installation
 
-This software depends on the `yt-dlp` being on the `PATH`. No other additional dependensies needed.
+This software depends on `yt-dlp` and `ffmpeg` being on the `PATH`. No other additional dependensies needed.
 
 ```sh
 cargo install --path .

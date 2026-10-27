@@ -30,7 +30,7 @@ use crate::{
 	playback::{MediaMeta, PlaybackCommand, PlaybackEvent, PlaybackView, playback_loop},
 	screen,
 	thumbnail::{ThumbnailCache, ThumbnailSource},
-	yt::{YtSearch, new_radio, search, youtube_link, ytdlp_available},
+	yt::{YtSearch, new_radio, search, youtube_link},
 };
 
 use iced_reorderable::Column as Reorderable;
@@ -40,7 +40,7 @@ const SEMI_TRANSPARENT_COLOR: Color = Color::from_rgba(0.3, 0.3, 0.3, 0.3);
 const MOST_VIEWED_AMOUNT: usize = 20;
 
 struct AppState {
-	ytdlp_available: bool,
+	dependencies_available: bool,
 
 	search_input: String,
 
@@ -88,7 +88,7 @@ impl AppState {
 		tokio::spawn(playback_loop(player_rx, event_tx));
 
 		Self {
-			ytdlp_available: ytdlp_available(),
+			dependencies_available: dependencies_available(),
 
 			search_input: String::from("Bad Apple"),
 			playback_view: PlaybackView::default(),
@@ -112,9 +112,9 @@ impl AppState {
 	}
 
 	fn view(&self) -> Element<'_, Message> {
-		if self.ytdlp_available {
+		if self.dependencies_available {
 			return text(
-				"yt-dlp could not be found. Make sure the executable is available on PATH and is up to date.",
+				"yt-dlp and/or ffmpeg could not be found. Make sure the dependencies are available on PATH and are up to date.",
 			)
 			.into();
 		}
@@ -1199,4 +1199,14 @@ enum Scene {
 pub enum SearchTab {
 	Tracks,
 	Videos,
+}
+
+fn dependencies_available() -> bool {
+	std::process::Command::new("yt-dlp")
+		.arg("--version")
+		.output()
+		.is_err() && std::process::Command::new("ffmpeg")
+		.arg("-version")
+		.output()
+		.is_err()
 }
