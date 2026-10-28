@@ -21,22 +21,20 @@ impl Player {
 			let reader = audio_cache::get_audio(&url).await?;
 			let len_hint = reader.len();
 
+			let (tx, rx) = tokio::sync::oneshot::channel();
 			// TODO: This method probably causing thread leakage but will do for now.
-			let handle = std::thread::spawn(move || {
-				Decoder::builder()
+			std::thread::spawn(move || {
+				let decoder = Decoder::builder()
 					.with_seekable(true)
 					.with_byte_len(len_hint)
 					.with_coarse_seek(true)
 					.with_data(reader)
-					.build()
+					.build();
+
+				let _ = tx.send(decoder);
 			});
 
-			while !handle.is_finished() {
-				tokio::time::sleep(Duration::from_millis(1)).await;
-			}
-			let source = handle
-				.join()
-				.map_err(|_| anyhow::anyhow!("Decoder thread panicked"))??;
+			let source = rx.await.context("Decoder thread dropped")??;
 
 			let duration = source
 				.total_duration()

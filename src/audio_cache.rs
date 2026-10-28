@@ -4,7 +4,7 @@ use std::{
 	time::Duration,
 };
 
-use anyhow::bail;
+use anyhow::{Context, bail};
 use dashmap::DashSet;
 use itertools::Itertools;
 use stream_download::{
@@ -74,22 +74,19 @@ async fn fetch_inner(id: String, url: String) {
 	let res = (async || -> anyhow::Result<Vec<u8>> {
 		let reader = remote_reader(&url).await?;
 
-		let handle = std::thread::spawn(|| {
+		let (tx, rx) = tokio::sync::oneshot::channel();
+		std::thread::spawn(|| {
 			let mut stream = reader.bytes();
 			let b = Vec::with_capacity(stream.size_hint().0);
-			stream.fold_ok(b, |mut acc, x| {
+			let source = stream.fold_ok(b, |mut acc, x| {
 				acc.push(x);
 				acc
-			})
+			});
+
+			let _ = tx.send(source);
 		});
 
-		while !handle.is_finished() {
-			tokio::time::sleep(Duration::from_millis(1)).await;
-		}
-		let source = handle
-			.join()
-			.map_err(|_| anyhow::anyhow!("Download thread panicked"))??;
-
+		let source = rx.await.context("Download thread dropped")??;
 		Ok(source)
 	})()
 	.await;
