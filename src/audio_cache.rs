@@ -155,13 +155,13 @@ async fn remote_reader(yt_link: &str) -> anyhow::Result<StreamDownload<TempStora
 	let found_format = match output {
 		YoutubeDlOutput::SingleVideo(video) => {
 			let formats = video.formats.unwrap();
-			let worst_score = 10.0;
-			// find best format (0 is best, 10 is worst)
+			let worst_score = 0.0;
+			// find best format, higher is better
 			formats.into_iter()
 				.filter(|f| f.ext.as_deref() == Some(YT_DLP_FORMAT))
 				.reduce(|best, format| {
 					match format.quality.unwrap_or(worst_score)
-						< best.quality.unwrap_or(worst_score)
+						> best.quality.unwrap_or(worst_score)
 					{
 						true => format,
 						false => best,
