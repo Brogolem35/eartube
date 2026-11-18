@@ -72,18 +72,13 @@ async fn fetch_inner(id: String, url: String) {
 
 	// try block at home
 	let res = (async || -> anyhow::Result<Vec<u8>> {
-		let reader = remote_reader(&url).await?;
+		let mut reader = remote_reader(&url).await?;
 
 		let (tx, rx) = tokio::sync::oneshot::channel();
-		std::thread::spawn(|| {
-			let mut stream = reader.bytes();
-			let b = Vec::with_capacity(stream.size_hint().0);
-			let source = stream.fold_ok(b, |mut acc, x| {
-				acc.push(x);
-				acc
-			});
-
-			let _ = tx.send(source);
+		std::thread::spawn(move || {
+			let mut b = Vec::new();
+			let res = reader.read_to_end(&mut b);
+			let _ = tx.send(res.map(|_| b));
 		});
 
 		let source = rx.await.context("Download thread dropped")??;
