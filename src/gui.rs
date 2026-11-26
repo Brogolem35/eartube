@@ -1205,8 +1205,9 @@ fn dependencies_available() -> bool {
 	std::process::Command::new("yt-dlp")
 		.arg("--version")
 		.output()
-		.is_ok() && std::process::Command::new("ffmpeg")
-		.arg("-version")
-		.output()
 		.is_ok()
+		&& std::process::Command::new("ffmpeg")
+			.arg("-version")
+			.output()
+			.is_ok()
 }

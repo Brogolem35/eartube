@@ -6,7 +6,6 @@ use std::{
 
 use anyhow::{Context, bail};
 use dashmap::DashSet;
-use itertools::Itertools;
 use stream_download::{
 	Settings, StreamDownload,
 	process::{CommandBuilder, FfmpegConvertAudioCommand, ProcessStreamParams, YtDlpCommand},
