@@ -2,7 +2,7 @@ use std::{sync::LazyLock, time::Duration};
 
 use anyhow::{Context, Ok, Result};
 use rodio::{Decoder, MixerDeviceSink, Source};
-use tokio::task::JoinHandle;
+use tokio::task::{self, JoinHandle};
 
 use crate::audio_cache;
 
@@ -21,20 +21,15 @@ impl Player {
 			let reader = audio_cache::get_audio(&url).await?;
 			let len_hint = reader.len();
 
-			let (tx, rx) = tokio::sync::oneshot::channel();
-			// TODO: This method probably causing thread leakage but will do for now.
-			std::thread::spawn(move || {
-				let decoder = Decoder::builder()
+			let source = task::spawn_blocking(move || {
+				Decoder::builder()
 					.with_seekable(true)
 					.with_byte_len(len_hint)
 					.with_coarse_seek(true)
 					.with_data(reader)
-					.build();
-
-				let _ = tx.send(decoder);
-			});
-
-			let source = rx.await.context("Decoder thread dropped")??;
+					.build()
+			})
+			.await??;
 
 			let duration = source
 				.total_duration()

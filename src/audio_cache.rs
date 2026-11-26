@@ -11,6 +11,7 @@ use stream_download::{
 	process::{CommandBuilder, FfmpegConvertAudioCommand, ProcessStreamParams, YtDlpCommand},
 	storage::temp::TempStorageProvider,
 };
+use tokio::task;
 use youtube_dl::{YoutubeDl, YoutubeDlOutput};
 
 use crate::{
@@ -73,14 +74,13 @@ async fn fetch_inner(id: String, url: String) {
 	let res = (async || -> anyhow::Result<Vec<u8>> {
 		let mut reader = remote_reader(&url).await?;
 
-		let (tx, rx) = tokio::sync::oneshot::channel();
-		std::thread::spawn(move || {
+		let source = task::spawn_blocking(move || {
 			let mut b = Vec::new();
 			let res = reader.read_to_end(&mut b);
-			let _ = tx.send(res.map(|_| b));
-		});
+			res.map(|_| b)
+		})
+		.await??;
 
-		let source = rx.await.context("Download thread dropped")??;
 		Ok(source)
 	})()
 	.await;
